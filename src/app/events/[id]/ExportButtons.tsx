@@ -12,48 +12,36 @@ export default function ExportButtons({ fileId, hasValidation, cleanCount, flagg
   const canFlagged = hasValidation && flaggedCount > 0;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mt-2.5">
-      {/* Clean rows */}
+    <div className="flex items-center gap-4 mt-2">
       {canClean ? (
         <a
           href={`/api/files/${fileId}/export?type=clean`}
           download
-          className="text-xs px-3 py-1.5 rounded-md border border-[#2a5bd7] text-[#2a5bd7]
-                     hover:bg-blue-50 transition-colors whitespace-nowrap"
+          className="text-xs text-[#2a5bd7] hover:underline"
         >
-          Clean Rows ({cleanCount})
+          ↓ Clean rows ({cleanCount})
         </a>
       ) : (
-        <span className="text-xs px-3 py-1.5 rounded-md border border-gray-100 text-gray-300
-                         whitespace-nowrap cursor-not-allowed select-none">
-          Clean Rows
-        </span>
+        <span className="text-xs text-zinc-300">↓ Clean rows</span>
       )}
 
-      {/* Flagged rows */}
       {canFlagged ? (
         <a
           href={`/api/files/${fileId}/export?type=flagged`}
           download
-          className="text-xs px-3 py-1.5 rounded-md border border-orange-300 text-orange-600
-                     hover:bg-orange-50 transition-colors whitespace-nowrap"
+          className="text-xs text-amber-600 hover:underline"
         >
-          Flagged Rows ({flaggedCount})
+          ↓ Flagged rows ({flaggedCount})
         </a>
       ) : (
-        <span className="text-xs px-3 py-1.5 rounded-md border border-gray-100 text-gray-300
-                         whitespace-nowrap cursor-not-allowed select-none">
-          Flagged Rows
-        </span>
+        <span className="text-xs text-zinc-300">↓ Flagged rows</span>
       )}
 
-      {/* Original file — always active */}
       <a
         href={`/api/files/${fileId}/download`}
-        className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-600
-                   hover:bg-gray-50 transition-colors whitespace-nowrap"
+        className="text-xs text-zinc-400 hover:text-zinc-600 hover:underline transition-colors"
       >
-        Original File
+        ↓ Original
       </a>
     </div>
   );

@@ -15,28 +15,28 @@ export default function DeleteEventButton({ eventId }: { eventId: string }) {
     return (
       <button
         onClick={() => setConfirming(true)}
-        className="text-sm text-red-400 hover:text-red-600 transition-colors"
+        className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
       >
-        Delete event
+        Delete
       </button>
     );
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-sm text-gray-500">Delete this event and all its files?</span>
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-zinc-500">Delete this event?</span>
       <button
         onClick={handleDelete}
         disabled={isPending}
-        className="text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50
-                   px-3 py-1.5 rounded-md transition-colors"
+        className="text-xs font-medium text-white bg-red-500 hover:bg-red-600
+                   disabled:opacity-50 px-2.5 py-1 rounded-md transition-colors"
       >
-        {isPending ? "Deleting…" : "Yes, delete"}
+        {isPending ? "Deleting…" : "Confirm"}
       </button>
       <button
         onClick={() => setConfirming(false)}
         disabled={isPending}
-        className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
       >
         Cancel
       </button>

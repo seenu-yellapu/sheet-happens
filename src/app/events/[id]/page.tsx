@@ -56,7 +56,6 @@ export default async function EventDetailPage({ params }: Props) {
 
   const files = (rawFiles ?? []) as FileRow[];
 
-  // Fetch flagged rows for all validations
   const validationIds = files.flatMap((f) => f.file_validations.map((v) => v.id));
   let flaggedRows: FlaggedRow[] = [];
   if (validationIds.length > 0) {
@@ -70,57 +69,60 @@ export default async function EventDetailPage({ params }: Props) {
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-12">
+    <main className="max-w-3xl mx-auto px-6 py-8">
+      {/* Breadcrumb + delete */}
       <div className="flex items-center justify-between">
-        <Link href="/events" className="text-sm text-[#2a5bd7] hover:underline">
-          ← All events
+        <Link href="/events" className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors">
+          ← Events
         </Link>
         <DeleteEventButton eventId={id} />
       </div>
 
-      <RenameEventInput eventId={id} initialName={event.name} />
-      <p className="text-sm text-gray-400 mt-2">
-        Created{" "}
-        {new Date(event.created_at).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })}
-      </p>
+      {/* Event title + date */}
+      <div className="mt-3 mb-8">
+        <RenameEventInput eventId={id} initialName={event.name} />
+        <p className="text-xs text-zinc-400 mt-1.5">
+          {new Date(event.created_at).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+      </div>
 
-      <FileUpload eventId={id} />
+      <div className="h-px bg-zinc-100 mb-8" />
 
-      {/* File list */}
-      <div className="mt-10">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-3">
-          Uploaded Files
-        </h2>
+      {/* Upload + file list */}
+      <div className="mb-10">
+        <FileUpload eventId={id} />
 
-        {!files.length ? (
-          <p className="text-sm text-gray-400">No files uploaded yet.</p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
+        {!!files.length && (
+          <div className="mt-4 border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
             {files.map((file) => {
               const v = file.file_validations[0];
               return (
-                <li key={file.id} className="py-4">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-gray-400">
-                      {formatBytes(file.size)} ·{" "}
-                      {new Date(file.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                <div key={file.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium text-zinc-800 truncate min-w-0">
+                      {file.name}
                     </span>
-                    {v && (
-                      <span className={`text-xs font-medium ${v.flagged_count > 0 ? "text-red-500" : "text-emerald-600"}`}>
-                        {v.flagged_count > 0
-                          ? `${v.clean_count} clean · ${v.flagged_count} flagged`
-                          : `${v.clean_count} clean`}
+                    <div className="flex items-center gap-3 shrink-0 text-xs">
+                      {v ? (
+                        <>
+                          <span className="text-green-600 font-medium">{v.clean_count} clean</span>
+                          {v.flagged_count > 0 && (
+                            <span className="text-amber-600 font-medium">{v.flagged_count} flagged</span>
+                          )}
+                        </>
+                      ) : null}
+                      <span className="text-zinc-400">{formatBytes(file.size)}</span>
+                      <span className="text-zinc-400">
+                        {new Date(file.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
                       </span>
-                    )}
+                    </div>
                   </div>
                   <ExportButtons
                     fileId={file.id}
@@ -128,30 +130,32 @@ export default async function EventDetailPage({ params }: Props) {
                     cleanCount={v?.clean_count ?? 0}
                     flaggedCount={v?.flagged_count ?? 0}
                   />
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </div>
 
       {/* Validation reports */}
-      {files
-        .filter((f) => f.file_validations.length > 0)
-        .map((file) => {
-          const v = file.file_validations[0];
-          const rows = flaggedRows.filter((r) => r.validation_id === v.id);
-          return (
-            <ValidationReport
-              key={v.id}
-              fileName={file.name}
-              totalRows={v.total_rows}
-              cleanCount={v.clean_count}
-              flaggedCount={v.flagged_count}
-              flaggedRows={rows}
-            />
-          );
-        })}
+      <div className="space-y-6">
+        {files
+          .filter((f) => f.file_validations.length > 0)
+          .map((file) => {
+            const v = file.file_validations[0];
+            const rows = flaggedRows.filter((r) => r.validation_id === v.id);
+            return (
+              <ValidationReport
+                key={v.id}
+                fileName={file.name}
+                totalRows={v.total_rows}
+                cleanCount={v.clean_count}
+                flaggedCount={v.flagged_count}
+                flaggedRows={rows}
+              />
+            );
+          })}
+      </div>
     </main>
   );
 }

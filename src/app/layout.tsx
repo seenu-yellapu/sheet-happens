@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -10,7 +11,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: "SheetHappens",
-  description: "Event management made simple",
+  description: "Event file management",
 };
 
 export default function RootLayout({
@@ -20,7 +21,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${poppins.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full bg-white text-zinc-900">
+        <header className="border-b border-zinc-100">
+          <div className="max-w-3xl mx-auto px-6 h-11 flex items-center">
+            <Link href="/events" className="text-[13px] font-semibold tracking-tight text-zinc-900">
+              SheetHappens
+            </Link>
+          </div>
+        </header>
+        {children}
+      </body>
     </html>
   );
 }
