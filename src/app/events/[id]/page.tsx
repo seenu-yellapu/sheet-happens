@@ -97,26 +97,21 @@ export default async function EventDetailPage({ params }: Props) {
         <FileUpload eventId={id} />
 
         {!!files.length && (
-          <div className="mt-4 border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
+          <div className="mt-3 space-y-0.5">
             {files.map((file) => {
               const v = file.file_validations[0];
               return (
-                <div key={file.id} className="px-4 py-3">
+                <div key={file.id} className="group rounded-lg px-3 py-2.5 hover:bg-zinc-50 transition-colors">
                   <div className="flex items-center justify-between gap-4">
                     <span className="text-sm font-medium text-zinc-800 truncate min-w-0">
                       {file.name}
                     </span>
-                    <div className="flex items-center gap-3 shrink-0 text-xs">
-                      {v ? (
-                        <>
-                          <span className="text-green-600 font-medium">{v.clean_count} clean</span>
-                          {v.flagged_count > 0 && (
-                            <span className="text-amber-600 font-medium">{v.flagged_count} flagged</span>
-                          )}
-                        </>
-                      ) : null}
-                      <span className="text-zinc-400">{formatBytes(file.size)}</span>
-                      <span className="text-zinc-400">
+                    <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-400">
+                      {v?.flagged_count > 0 && (
+                        <span className="text-amber-500">{v.flagged_count} flagged</span>
+                      )}
+                      <span>{formatBytes(file.size)}</span>
+                      <span>
                         {new Date(file.created_at).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",

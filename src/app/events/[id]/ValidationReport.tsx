@@ -27,39 +27,29 @@ function rowPreview(data: Record<string, string>): string {
 
 export default function ValidationReport({
   fileName,
-  totalRows,
-  cleanCount,
   flaggedCount,
   flaggedRows,
 }: Props) {
   if (flaggedCount === 0) return null;
 
   return (
-    <div className="border border-zinc-200 rounded-lg overflow-hidden">
-      <div className="px-4 py-3 bg-zinc-50 border-b border-zinc-200 flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-600 truncate">{fileName}</span>
-        <div className="flex items-center gap-3 shrink-0 text-xs ml-4">
-          <span className="text-green-600 font-medium">{cleanCount} clean</span>
-          <span className="text-amber-600 font-medium">{flaggedCount} flagged</span>
-          <span className="text-zinc-400">{totalRows} rows</span>
-        </div>
-      </div>
-
-      <div className="divide-y divide-zinc-100">
+    <div>
+      <p className="text-xs font-medium text-zinc-400 mb-2 px-3">{fileName} — {flaggedCount} flagged</p>
+      <div className="space-y-0.5">
         {flaggedRows.map((row) => {
           const preview = rowPreview(row.row_data);
           return (
-            <div key={row.row_index} className="px-4 py-2.5 flex gap-4">
-              <span className="text-xs text-zinc-400 w-12 shrink-0 pt-0.5 font-medium">
-                Row {row.row_index}
+            <div key={row.row_index} className="rounded-lg px-3 py-2.5 hover:bg-zinc-50 transition-colors flex gap-4">
+              <span className="text-xs text-zinc-400 w-10 shrink-0 pt-0.5 tabular-nums">
+                {row.row_index}
               </span>
               <div className="min-w-0 flex-1">
                 {preview && (
-                  <p className="text-xs text-zinc-500 mb-1 truncate">{preview}</p>
+                  <p className="text-xs text-zinc-500 mb-0.5 truncate">{preview}</p>
                 )}
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                   {row.issues.map((issue, i) => (
-                    <span key={i} className="text-xs text-red-500">
+                    <span key={i} className="text-xs text-red-400">
                       {issue.field}: {issue.message}
                     </span>
                   ))}

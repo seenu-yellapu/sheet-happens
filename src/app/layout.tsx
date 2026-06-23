@@ -23,8 +23,8 @@ export default function RootLayout({
     <html lang="en" className={`${poppins.variable} h-full antialiased`}>
       <body className="min-h-full bg-white text-zinc-900">
         <header className="border-b border-zinc-100">
-          <div className="max-w-3xl mx-auto px-6 h-11 flex items-center">
-            <Link href="/events" className="text-[13px] font-semibold tracking-tight text-zinc-900">
+          <div className="max-w-3xl mx-auto px-6 h-14 flex items-center">
+            <Link href="/events" className="text-xl font-bold tracking-tight text-[#2a5bd7]">
               SheetHappens
             </Link>
           </div>
