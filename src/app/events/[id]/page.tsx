@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import FileUpload from "./FileUpload";
 import ValidationReport from "./ValidationReport";
+import ExportButtons from "./ExportButtons";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -97,33 +98,31 @@ export default async function EventDetailPage({ params }: Props) {
             {files.map((file) => {
               const v = file.file_validations[0];
               return (
-                <li key={file.id} className="flex items-center justify-between py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{file.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-gray-400">
-                        {formatBytes(file.size)} ·{" "}
-                        {new Date(file.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                <li key={file.id} className="py-4">
+                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-gray-400">
+                      {formatBytes(file.size)} ·{" "}
+                      {new Date(file.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    {v && (
+                      <span className={`text-xs font-medium ${v.flagged_count > 0 ? "text-red-500" : "text-emerald-600"}`}>
+                        {v.flagged_count > 0
+                          ? `${v.clean_count} clean · ${v.flagged_count} flagged`
+                          : `${v.clean_count} clean`}
                       </span>
-                      {v && (
-                        <span className={`text-xs font-medium ${v.flagged_count > 0 ? "text-red-500" : "text-emerald-600"}`}>
-                          {v.flagged_count > 0
-                            ? `${v.clean_count} clean · ${v.flagged_count} flagged`
-                            : `${v.clean_count} clean`}
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
-                  <a
-                    href={`/api/files/${file.id}/download`}
-                    className="ml-4 text-sm text-[#2a5bd7] hover:underline shrink-0"
-                  >
-                    Download
-                  </a>
+                  <ExportButtons
+                    fileId={file.id}
+                    hasValidation={!!v}
+                    cleanCount={v?.clean_count ?? 0}
+                    flaggedCount={v?.flagged_count ?? 0}
+                  />
                 </li>
               );
             })}
