@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import FileUpload from "./FileUpload";
 import ValidationReport from "./ValidationReport";
 import ExportButtons from "./ExportButtons";
+import DeleteEventButton from "./DeleteEventButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -69,9 +70,12 @@ export default async function EventDetailPage({ params }: Props) {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-12">
-      <Link href="/events" className="text-sm text-[#2a5bd7] hover:underline mb-8 inline-block">
-        ← All events
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href="/events" className="text-sm text-[#2a5bd7] hover:underline">
+          ← All events
+        </Link>
+        <DeleteEventButton eventId={id} />
+      </div>
 
       <h1 className="text-3xl font-semibold mt-4">{event.name}</h1>
       <p className="text-sm text-gray-400 mt-2">

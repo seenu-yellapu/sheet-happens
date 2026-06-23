@@ -17,3 +17,25 @@ export async function createEvent(formData: FormData) {
   if (error) throw new Error(error.message);
   redirect(`/events/${data.id}`);
 }
+
+export async function deleteEvent(eventId: string) {
+  const supabase = await createClient();
+
+  // Remove storage objects before deleting the DB rows
+  const { data: files } = await supabase
+    .from("event_files")
+    .select("storage_path")
+    .eq("event_id", eventId);
+
+  if (files?.length) {
+    await supabase.storage
+      .from("uploads")
+      .remove(files.map((f) => f.storage_path as string));
+  }
+
+  // Deleting the event cascades through event_files → file_validations → validation_rows
+  const { error } = await supabase.from("events").delete().eq("id", eventId);
+  if (error) throw new Error(error.message);
+
+  redirect("/events");
+}
