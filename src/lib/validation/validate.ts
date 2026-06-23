@@ -17,6 +17,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FIRST_NAME_KEYS = ["firstname", "fname", "givenname", "first"];
 const LAST_NAME_KEYS = ["lastname", "lname", "surname", "familyname", "last"];
 const EMAIL_KEYS = ["email", "emailaddress", "email_address", "e-mail"];
+// Prefix pattern: matches email1, email2, emailaddress1, etc.
+const EMAIL_PREFIX_RE = /^(email|emailaddress)\d*$/;
 // Exact-match aliases (after normalizing the header: lowercase, strip spaces/_/-)
 const PHONE_KEYS = ["phone", "phonenumber", "mobile", "cell", "telephone", "tel"];
 // Prefix pattern: matches phone1, phone2, mobile1, cell_number, tel1, etc.
@@ -31,11 +33,17 @@ function findColumn(
   );
 }
 
+function findEmailColumn(headers: string[]): string | undefined {
+  const exact = findColumn(headers, EMAIL_KEYS);
+  if (exact) return exact;
+  return headers.find((h) =>
+    EMAIL_PREFIX_RE.test(h.toLowerCase().replace(/[\s_-]/g, ""))
+  );
+}
+
 function findPhoneColumn(headers: string[]): string | undefined {
-  // Try exact alias match first
   const exact = findColumn(headers, PHONE_KEYS);
   if (exact) return exact;
-  // Fall back to prefix match: "phone1", "phone2", "mobile1", etc.
   return headers.find((h) =>
     PHONE_PREFIX_RE.test(h.toLowerCase().replace(/[\s_-]/g, ""))
   );
@@ -47,7 +55,7 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
   const headers = Object.keys(rows[0].raw);
   const colFirst = findColumn(headers, FIRST_NAME_KEYS);
   const colLast = findColumn(headers, LAST_NAME_KEYS);
-  const colEmail = findColumn(headers, EMAIL_KEYS);
+  const colEmail = findEmailColumn(headers);
   const colPhone = findPhoneColumn(headers);
 
   const seenEmails = new Map<string, number>();
@@ -74,14 +82,15 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
     if (email) {
       if (!EMAIL_RE.test(email)) {
         issues.push({ field: "Email", message: "Invalid email format" });
+      }
+
+      // Duplicate check runs independently of format validity
+      const key = email.toLowerCase();
+      const prev = seenEmails.get(key);
+      if (prev !== undefined) {
+        issues.push({ field: "Email", message: `Duplicate of row ${prev}` });
       } else {
-        const key = email.toLowerCase();
-        const prev = seenEmails.get(key);
-        if (prev !== undefined) {
-          issues.push({ field: "Email", message: `Duplicate of row ${prev}` });
-        } else {
-          seenEmails.set(key, row.index);
-        }
+        seenEmails.set(key, row.index);
       }
     }
 
