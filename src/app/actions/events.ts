@@ -18,6 +18,16 @@ export async function createEvent(formData: FormData) {
   redirect(`/events/${data.id}`);
 }
 
+export async function renameEvent(eventId: string, name: string) {
+  if (!name?.trim()) return;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("events")
+    .update({ name: name.trim() })
+    .eq("id", eventId);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteEvent(eventId: string) {
   const supabase = await createClient();
 

@@ -5,6 +5,7 @@ import FileUpload from "./FileUpload";
 import ValidationReport from "./ValidationReport";
 import ExportButtons from "./ExportButtons";
 import DeleteEventButton from "./DeleteEventButton";
+import RenameEventInput from "./RenameEventInput";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -77,7 +78,7 @@ export default async function EventDetailPage({ params }: Props) {
         <DeleteEventButton eventId={id} />
       </div>
 
-      <h1 className="text-3xl font-semibold mt-4">{event.name}</h1>
+      <RenameEventInput eventId={id} initialName={event.name} />
       <p className="text-sm text-gray-400 mt-2">
         Created{" "}
         {new Date(event.created_at).toLocaleDateString("en-US", {
