@@ -17,7 +17,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const FIRST_NAME_KEYS = ["firstname", "fname", "givenname", "first"];
 const LAST_NAME_KEYS = ["lastname", "lname", "surname", "familyname", "last"];
 const EMAIL_KEYS = ["email", "emailaddress", "email_address", "e-mail"];
-const PHONE_KEYS = ["phone", "phonenumber", "phone_number", "mobile", "cell", "telephone", "tel"];
+// Exact-match aliases (after normalizing the header: lowercase, strip spaces/_/-)
+const PHONE_KEYS = ["phone", "phonenumber", "mobile", "cell", "telephone", "tel"];
+// Prefix pattern: matches phone1, phone2, mobile1, cell_number, tel1, etc.
+const PHONE_PREFIX_RE = /^(phone|mobile|cell|telephone|tel)\d*$/;
 
 function findColumn(
   headers: string[],
@@ -28,6 +31,16 @@ function findColumn(
   );
 }
 
+function findPhoneColumn(headers: string[]): string | undefined {
+  // Try exact alias match first
+  const exact = findColumn(headers, PHONE_KEYS);
+  if (exact) return exact;
+  // Fall back to prefix match: "phone1", "phone2", "mobile1", etc.
+  return headers.find((h) =>
+    PHONE_PREFIX_RE.test(h.toLowerCase().replace(/[\s_-]/g, ""))
+  );
+}
+
 export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
   if (!rows.length) return [];
 
@@ -35,7 +48,7 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
   const colFirst = findColumn(headers, FIRST_NAME_KEYS);
   const colLast = findColumn(headers, LAST_NAME_KEYS);
   const colEmail = findColumn(headers, EMAIL_KEYS);
-  const colPhone = findColumn(headers, PHONE_KEYS);
+  const colPhone = findPhoneColumn(headers);
 
   const seenEmails = new Map<string, number>();
   const seenPhones = new Map<string, number>();
@@ -45,6 +58,8 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
     const lastName = colLast ? (row.raw[colLast] ?? "") : "";
     const email = colEmail ? (row.raw[colEmail] ?? "") : "";
     const phone = colPhone ? (row.raw[colPhone] ?? "") : "";
+
+    const digits = phone.replace(/\D/g, "");
 
     const issues: RowIssue[] = [];
 
@@ -71,13 +86,15 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
     }
 
     if (phone) {
-      const digits = phone.replace(/\D/g, "");
       if (digits.length !== 10) {
         issues.push({
           field: "Phone",
-          message: `Invalid phone — got ${digits.length} digits, expected 10`,
+          message: `Invalid phone — got ${digits.length} digit${digits.length === 1 ? "" : "s"}, expected 10`,
         });
-      } else {
+      }
+
+      // Duplicate check runs independently of format validity
+      if (digits.length > 0) {
         const prev = seenPhones.get(digits);
         if (prev !== undefined) {
           issues.push({ field: "Phone", message: `Duplicate of row ${prev}` });
