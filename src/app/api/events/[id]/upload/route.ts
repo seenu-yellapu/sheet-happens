@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { runValidation } from "@/lib/validation/run";
 
 const ALLOWED_TYPES = [
   "text/csv",
@@ -30,27 +31,33 @@ export async function POST(request: NextRequest, { params }: Context) {
     );
   }
 
-  const ext = file.name.split(".").pop();
+  const buffer = Buffer.from(await file.arrayBuffer());
   const storagePath = `${eventId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
 
   const { error: uploadError } = await supabase.storage
     .from("uploads")
-    .upload(storagePath, file, { contentType: file.type });
+    .upload(storagePath, buffer, { contentType: file.type });
 
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { error: dbError } = await supabase.from("event_files").insert({
-    event_id: eventId,
-    name: file.name,
-    storage_path: storagePath,
-    size: file.size,
-  });
+  const { data: fileRecord, error: dbError } = await supabase
+    .from("event_files")
+    .insert({ event_id: eventId, name: file.name, storage_path: storagePath, size: file.size })
+    .select("id")
+    .single();
 
-  if (dbError) {
+  if (dbError || !fileRecord) {
     await supabase.storage.from("uploads").remove([storagePath]);
-    return NextResponse.json({ error: dbError.message }, { status: 500 });
+    return NextResponse.json({ error: dbError?.message ?? "DB error" }, { status: 500 });
+  }
+
+  // Run validation — don't fail the upload if this errors
+  try {
+    await runValidation(supabase, fileRecord.id, buffer, file.name);
+  } catch (err) {
+    console.error("Validation error:", err);
   }
 
   return NextResponse.json({ ok: true });
