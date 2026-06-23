@@ -25,15 +25,41 @@ function normalizeRow(
   );
 }
 
+// Matches common column-name keywords; used to find the real header row
+// when files have metadata rows at the top (e.g. exported school reports).
+const HEADER_KEYWORD_RE =
+  /\b(name|email|phone|mobile|first|last|address|room|id|grade|class|contact)\b/i;
+
+function findHeaderRowIndex(rows: string[][]): number {
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const meaningful = rows[i].filter((v) => v && !v.startsWith("__EMPTY"));
+    if (meaningful.length >= 2 && meaningful.some((v) => HEADER_KEYWORD_RE.test(v))) {
+      return i;
+    }
+  }
+  return 0;
+}
+
 function parseCSV(buffer: Buffer): ParsedRow[] {
-  const result = Papa.parse<Record<string, string>>(
-    buffer.toString("utf-8"),
-    { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim() }
-  );
-  return result.data.map((row, i) => ({
-    index: i + 1,
-    raw: normalizeRow(row),
-  }));
+  const text = buffer.toString("utf-8");
+
+  // Parse without headers first to detect metadata rows
+  const { data: rawRows } = Papa.parse<string[]>(text, { skipEmptyLines: true });
+  if (rawRows.length < 2) return [];
+
+  const headerIdx = findHeaderRowIndex(rawRows);
+  const headers = rawRows[headerIdx].map((h) => h.trim());
+
+  return rawRows
+    .slice(headerIdx + 1)
+    .filter((row) => row.some((v) => v.trim()))
+    .map((values, i) => {
+      const raw: Record<string, string> = {};
+      headers.forEach((h, j) => {
+        if (h) raw[h] = (values[j] ?? "").trim();
+      });
+      return { index: i + 1, raw };
+    });
 }
 
 function parseExcel(buffer: Buffer): ParsedRow[] {
