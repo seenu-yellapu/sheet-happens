@@ -185,11 +185,15 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
 
           const selectedCols = assignment.columns;
           const suggestions = suggestColumns(headers, type);
+          const isTyped = type === "email" || type === "phone";
 
-          // Sort: selected first (in order), then unselected
+          // For typed fields, only show type-matched + already-selected columns
+          const relevantCols = isTyped
+            ? headers.filter((h) => selectedCols.includes(h) || suggestions.find((s) => s.col === h)?.isSuggested)
+            : headers;
           const dropdownCols = [
-            ...headers.filter((h) => selectedCols.includes(h)),
-            ...headers.filter((h) => !selectedCols.includes(h)),
+            ...relevantCols.filter((h) => selectedCols.includes(h)),
+            ...relevantCols.filter((h) => !selectedCols.includes(h)),
           ];
 
           return (
@@ -232,18 +236,13 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                         <div className="absolute top-6 left-0 z-20 bg-white border border-zinc-200 rounded-lg shadow-lg w-52 max-h-52 overflow-y-auto">
                           {dropdownCols.map((col) => {
                             const isSelected = selectedCols.includes(col);
-                            const isSuggested = suggestions.find((s) => s.col === col)?.isSuggested ?? false;
                             return (
                               <button
                                 key={col}
                                 type="button"
                                 onClick={() => toggleColumn(field.id, col)}
                                 className={`flex items-center w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 transition-colors ${
-                                  isSelected
-                                    ? "text-[#2a5bd7]"
-                                    : isSuggested
-                                    ? "text-zinc-700"
-                                    : "text-amber-600"
+                                  isSelected ? "text-[#2a5bd7]" : "text-zinc-700"
                                 }`}
                               >
                                 {isSelected && <span className="mr-2 shrink-0">✓</span>}
@@ -252,7 +251,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                             );
                           })}
                           {dropdownCols.length === 0 && (
-                            <p className="px-3 py-2 text-xs text-zinc-400">No columns available</p>
+                            <p className="px-3 py-2 text-xs text-zinc-400">No matching columns</p>
                           )}
                         </div>
                       )}
