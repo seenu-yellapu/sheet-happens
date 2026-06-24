@@ -1,4 +1,5 @@
 import type { ParsedRow } from "./parse";
+import type { TemplateField, FieldAssignment } from "./types";
 
 export interface RowIssue {
   field: string;
@@ -13,6 +14,8 @@ export interface ValidatedRow {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ── Legacy (no-template) validation ─────────────────────────────────────────
 
 const FIRST_NAME_KEYS = ["firstname", "fname", "givenname", "first"];
 const LAST_NAME_KEYS = ["lastname", "lname", "surname", "familyname", "last"];
@@ -29,7 +32,6 @@ function findColumn(headers: string[], aliases: string[]): string | undefined {
   return headers.find((h) => aliases.includes(norm(h)));
 }
 
-// Returns ALL columns that look like email fields (email, email1, Parent1 Email, etc.)
 function findEmailColumns(headers: string[]): string[] {
   return headers.filter((h) => {
     const n = norm(h);
@@ -37,17 +39,10 @@ function findEmailColumns(headers: string[]): string[] {
   });
 }
 
-// Returns ALL columns that look like phone fields (phone, phone1, Parent1 Mobile Phone, etc.)
 function findPhoneColumns(headers: string[]): string[] {
   return headers.filter((h) => {
     const n = norm(h);
-    return (
-      PHONE_KEYS.includes(n) ||
-      PHONE_PREFIX_RE.test(n) ||
-      n.includes("phone") ||
-      n.includes("mobile") ||
-      n.includes("cell")
-    );
+    return PHONE_KEYS.includes(n) || PHONE_PREFIX_RE.test(n) || n.includes("phone") || n.includes("mobile") || n.includes("cell");
   });
 }
 
@@ -59,41 +54,30 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
   const colLast = findColumn(headers, LAST_NAME_KEYS);
   const colEmails = findEmailColumns(headers);
   const colPhones = findPhoneColumns(headers);
-
   const multiEmail = colEmails.length > 1;
   const multiPhone = colPhones.length > 1;
-
   const seenEmails = new Map<string, number>();
   const seenPhones = new Map<string, number>();
 
   return rows.map((row) => {
-    const firstName = colFirst ? (row.raw[colFirst] ?? "") : "";
-    const lastName = colLast ? (row.raw[colLast] ?? "") : "";
-
     const issues: RowIssue[] = [];
 
-    if (colFirst !== undefined && !firstName.trim()) {
+    if (colFirst !== undefined && !(row.raw[colFirst] ?? "").trim()) {
       issues.push({ field: "First Name", message: "Missing first name" });
     }
-
-    if (colLast !== undefined && !lastName.trim()) {
+    if (colLast !== undefined && !(row.raw[colLast] ?? "").trim()) {
       issues.push({ field: "Last Name", message: "Missing last name" });
     }
 
     for (const col of colEmails) {
       const email = (row.raw[col] ?? "").trim();
       if (!email) continue;
-
-      const fieldLabel = multiEmail ? col : "Email";
-
-      if (!EMAIL_RE.test(email)) {
-        issues.push({ field: fieldLabel, message: "Invalid email format" });
-      }
-
+      const label = multiEmail ? col : "Email";
+      if (!EMAIL_RE.test(email)) issues.push({ field: label, message: "Invalid email format" });
       const key = email.toLowerCase();
       const prev = seenEmails.get(key);
       if (prev !== undefined) {
-        issues.push({ field: fieldLabel, message: `Duplicate of row ${prev}` });
+        issues.push({ field: label, message: `Duplicate of row ${prev}` });
       } else {
         seenEmails.set(key, row.index);
       }
@@ -102,21 +86,15 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
     for (const col of colPhones) {
       const phone = (row.raw[col] ?? "").trim();
       if (!phone) continue;
-
       const digits = phone.replace(/\D/g, "");
-      const fieldLabel = multiPhone ? col : "Phone";
-
+      const label = multiPhone ? col : "Phone";
       if (digits.length !== 10) {
-        issues.push({
-          field: fieldLabel,
-          message: `Invalid phone — got ${digits.length} digit${digits.length === 1 ? "" : "s"}, expected 10`,
-        });
+        issues.push({ field: label, message: `Invalid phone — got ${digits.length} digit${digits.length === 1 ? "" : "s"}, expected 10` });
       }
-
       if (digits.length > 0) {
         const prev = seenPhones.get(digits);
         if (prev !== undefined) {
-          issues.push({ field: fieldLabel, message: `Duplicate of row ${prev}` });
+          issues.push({ field: label, message: `Duplicate of row ${prev}` });
         } else {
           seenPhones.set(digits, row.index);
         }
@@ -124,5 +102,96 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
     }
 
     return { index: row.index, raw: row.raw, issues, isClean: issues.length === 0 };
+  });
+}
+
+// ── Template-based validation ────────────────────────────────────────────────
+
+export function validateRowsWithTemplate(
+  rows: ParsedRow[],
+  fields: TemplateField[],
+  mapping: FieldAssignment[]
+): ValidatedRow[] {
+  if (!rows.length) return [];
+
+  // One dedup map per field that has flagDuplicates enabled, keyed by field.id
+  const seenMaps = new Map<string, Map<string, number>>();
+  for (const field of fields) {
+    if (field.rules.flagDuplicates) seenMaps.set(field.id, new Map());
+  }
+
+  return rows.map((row) => {
+    const issues: RowIssue[] = [];
+    const outputRow: Record<string, string> = {};
+
+    for (const assignment of mapping) {
+      // Match by fieldName so renames don't break saved mappings
+      const field = fields.find((f) => f.name === assignment.fieldName);
+      if (!field) continue;
+
+      const { rules } = field;
+      const sourceValues = assignment.columns.map((col) => (row.raw[col] ?? "").trim());
+      const isSeparate = assignment.combineMode === "separate" && assignment.columns.length > 1;
+
+      // Build output record
+      if (isSeparate) {
+        assignment.columns.forEach((col, i) => {
+          outputRow[`${assignment.fieldName} (${col})`] = sourceValues[i];
+        });
+      } else if (assignment.combineMode === "semicolon") {
+        outputRow[assignment.fieldName] = sourceValues.filter(Boolean).join("; ");
+      } else if (assignment.combineMode === "comma") {
+        outputRow[assignment.fieldName] = sourceValues.filter(Boolean).join(", ");
+      } else {
+        // 'first' or single column
+        outputRow[assignment.fieldName] = sourceValues.find((v) => v) ?? sourceValues[0] ?? "";
+      }
+
+      // Required: all source columns empty
+      if (rules.required && sourceValues.every((v) => !v)) {
+        issues.push({ field: assignment.fieldName, message: `Missing ${field.name}` });
+        continue;
+      }
+
+      const seenMap = seenMaps.get(field.id);
+
+      for (let i = 0; i < sourceValues.length; i++) {
+        const value = sourceValues[i];
+        if (!value) continue;
+
+        const label = isSeparate
+          ? `${assignment.fieldName} (${assignment.columns[i]})`
+          : assignment.fieldName;
+
+        if (rules.validFormat) {
+          if (rules.type === "email" && !EMAIL_RE.test(value)) {
+            issues.push({ field: label, message: "Invalid email format" });
+          } else if (rules.type === "phone" && !/\d/.test(value)) {
+            issues.push({ field: label, message: "Invalid phone format" });
+          }
+        }
+
+        if (rules.minDigits && rules.type === "phone") {
+          const digits = value.replace(/\D/g, "");
+          if (digits.length !== 10) {
+            issues.push({ field: label, message: `Invalid phone — got ${digits.length} digit${digits.length === 1 ? "" : "s"}, expected 10` });
+          }
+        }
+
+        if (seenMap && rules.flagDuplicates) {
+          const key = rules.type === "phone" ? value.replace(/\D/g, "") : value.toLowerCase();
+          if (key) {
+            const prev = seenMap.get(key);
+            if (prev !== undefined) {
+              issues.push({ field: label, message: `Duplicate of row ${prev}` });
+            } else {
+              seenMap.set(key, row.index);
+            }
+          }
+        }
+      }
+    }
+
+    return { index: row.index, raw: outputRow, issues, isClean: issues.length === 0 };
   });
 }

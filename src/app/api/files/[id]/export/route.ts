@@ -76,7 +76,7 @@ export async function GET(
 
   const { data: fileRec } = await supabase
     .from("event_files")
-    .select("name, selected_columns, file_validations(id)")
+    .select("name, selected_columns, column_mapping, file_validations(id)")
     .eq("id", id)
     .single();
 
@@ -102,7 +102,19 @@ export async function GET(
   }
 
   const platformMap = PLATFORMS[platform];
-  const colOrder = (fileRec.selected_columns as string[] | null) ?? undefined;
+
+  // Derive column order from template mapping if present, otherwise fall back to selected_columns
+  let colOrder: string[] | undefined;
+  const colMapping = fileRec.column_mapping as Array<{ fieldName: string; columns: string[]; combineMode: string }> | null;
+  if (colMapping) {
+    colOrder = colMapping.flatMap((f) =>
+      f.combineMode === "separate" && f.columns.length > 1
+        ? f.columns.map((c) => `${f.fieldName} (${c})`)
+        : [f.fieldName]
+    );
+  } else {
+    colOrder = (fileRec.selected_columns as string[] | null) ?? undefined;
+  }
 
   let csvData: Record<string, string>[];
   if (isClean) {

@@ -1,41 +1,50 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseFile } from "./parse";
-import { validateRows } from "./validate";
+import { validateRows, validateRowsWithTemplate } from "./validate";
+import type { TemplateField, FieldAssignment } from "./types";
 
 const BATCH = 500;
+
+interface LegacyOptions {
+  type: "legacy";
+  selectedColumns: string[];
+}
+
+interface TemplateOptions {
+  type: "template";
+  fields: TemplateField[];
+  mapping: FieldAssignment[];
+}
 
 export async function runValidation(
   supabase: SupabaseClient,
   fileId: string,
   buffer: Buffer,
   fileName: string,
-  selectedColumns: string[]
+  options: LegacyOptions | TemplateOptions
 ): Promise<void> {
   const parsed = await parseFile(buffer, fileName);
 
-  // Restrict each row to only the selected columns, preserving the user's chosen order
-  const filtered = parsed.map((row) => ({
-    ...row,
-    raw: Object.fromEntries(
-      selectedColumns
-        .filter((c) => c in row.raw)
-        .map((c) => [c, row.raw[c] ?? ""])
-    ),
-  }));
-
-  const validated = validateRows(filtered);
+  const validated =
+    options.type === "template"
+      ? validateRowsWithTemplate(parsed, options.fields, options.mapping)
+      : validateRows(
+          parsed.map((row) => ({
+            ...row,
+            raw: Object.fromEntries(
+              options.selectedColumns
+                .filter((c) => c in row.raw)
+                .map((c) => [c, row.raw[c] ?? ""])
+            ),
+          }))
+        );
 
   const cleanCount = validated.filter((r) => r.isClean).length;
   const flaggedCount = validated.filter((r) => !r.isClean).length;
 
   const { data: validation, error: vErr } = await supabase
     .from("file_validations")
-    .insert({
-      file_id: fileId,
-      total_rows: validated.length,
-      clean_count: cleanCount,
-      flagged_count: flaggedCount,
-    })
+    .insert({ file_id: fileId, total_rows: validated.length, clean_count: cleanCount, flagged_count: flaggedCount })
     .select("id")
     .single();
 
@@ -50,9 +59,7 @@ export async function runValidation(
   }));
 
   for (let i = 0; i < rows.length; i += BATCH) {
-    const { error } = await supabase
-      .from("validation_rows")
-      .insert(rows.slice(i, i + BATCH));
+    const { error } = await supabase.from("validation_rows").insert(rows.slice(i, i + BATCH));
     if (error) throw new Error(error.message);
   }
 }

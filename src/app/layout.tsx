@@ -32,7 +32,14 @@ export default async function RootLayout({
             <Link href="/events" className="text-xl font-bold tracking-tight text-[#2a5bd7]">
               SheetHappens
             </Link>
-            {user && <SignOutButton email={user.email ?? ""} />}
+            {user && (
+              <div className="flex items-center gap-5">
+                <Link href="/templates" className="text-sm text-zinc-500 hover:text-zinc-800 transition-colors">
+                  Templates
+                </Link>
+                <SignOutButton email={user.email ?? ""} />
+              </div>
+            )}
           </div>
         </header>
         {children}

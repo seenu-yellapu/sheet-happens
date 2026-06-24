@@ -6,7 +6,8 @@ import ValidationReport from "./ValidationReport";
 import ExportButtons from "./ExportButtons";
 import DeleteEventButton from "./DeleteEventButton";
 import RenameEventInput from "./RenameEventInput";
-import ColumnPicker from "./ColumnPicker";
+import ColumnMapper from "./ColumnMapper";
+import type { ColumnMapping } from "@/lib/validation/types";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -32,6 +33,7 @@ interface FileRow {
   created_at: string;
   headers: string[] | null;
   selected_columns: string[] | null;
+  column_mapping: ColumnMapping | null;
   file_validations: ValidationSummary[];
 }
 
@@ -46,18 +48,23 @@ export default async function EventDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: event }, { data: rawFiles }] = await Promise.all([
+  const [{ data: event }, { data: rawFiles }, { data: templates }] = await Promise.all([
     supabase.from("events").select("id, name, created_at").eq("id", id).single(),
     supabase
       .from("event_files")
-      .select("id, name, size, created_at, headers, selected_columns, file_validations(id, total_rows, clean_count, flagged_count)")
+      .select("id, name, size, created_at, headers, selected_columns, column_mapping, file_validations(id, total_rows, clean_count, flagged_count)")
       .eq("event_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("templates")
+      .select("id, name, template_fields(id, name, position, template_field_rules(rule_type, enabled, value))")
+      .order("name"),
   ]);
 
   if (!event) notFound();
 
   const files = (rawFiles ?? []) as FileRow[];
+  const templateList = (templates ?? []) as any[];
 
   const validationIds = files.flatMap((f) => f.file_validations.map((v) => v.id));
   let flaggedRows: FlaggedRow[] = [];
@@ -132,7 +139,12 @@ export default async function EventDetailPage({ params }: Props) {
                       flaggedCount={v.flagged_count}
                     />
                   ) : file.headers?.length ? (
-                    <ColumnPicker fileId={file.id} headers={file.headers} />
+                    <ColumnMapper
+                      fileId={file.id}
+                      headers={file.headers}
+                      templates={templateList}
+                      existingMapping={file.column_mapping}
+                    />
                   ) : null}
                 </div>
               );
