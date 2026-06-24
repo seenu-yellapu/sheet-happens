@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { duplicateTemplate, deleteTemplate } from "@/app/actions/templates";
+import { duplicateTemplate } from "@/app/actions/templates";
 import { createNewTemplate } from "@/app/actions/templates";
+import DeleteTemplateButton from "./DeleteTemplateButton";
 
 export default async function TemplatesPage() {
   const supabase = await createClient();
@@ -58,18 +59,7 @@ export default async function TemplatesPage() {
                       Duplicate
                     </button>
                   </form>
-                  <form action={deleteTemplate.bind(null, t.id)}>
-                    <button
-                      type="submit"
-                      className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
-                      title="Delete"
-                      onClick={(e) => {
-                        if (!confirm(`Delete "${t.name}"?`)) e.preventDefault();
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </form>
+                  <DeleteTemplateButton templateId={t.id} templateName={t.name} />
                 </div>
               </div>
             );
