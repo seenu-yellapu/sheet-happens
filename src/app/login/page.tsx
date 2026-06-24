@@ -29,7 +29,11 @@ export default function LoginPage() {
       router.push("/events");
       router.refresh();
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
       if (error) {
         setMessage({ type: "error", text: error.message });
         setLoading(false);
