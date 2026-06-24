@@ -29,8 +29,9 @@ function getFieldType(field: TemplateFieldRow): FieldType {
   return (typeRule?.value ?? "text") as FieldType;
 }
 
+const norm = (s: string) => s.toLowerCase().replace(/[\s_\-().]/g, "");
+
 function suggestColumns(headers: string[], type: FieldType): { col: string; isSuggested: boolean }[] {
-  const norm = (s: string) => s.toLowerCase().replace(/[\s_-]/g, "");
   return headers.map((col) => {
     const n = norm(col);
     let isSuggested = false;
@@ -38,6 +39,23 @@ function suggestColumns(headers: string[], type: FieldType): { col: string; isSu
     else if (type === "phone") isSuggested = n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel");
     return { col, isSuggested };
   });
+}
+
+function autoMatchColumns(headers: string[], fieldName: string, type: FieldType): string[] {
+  const nf = norm(fieldName);
+  // Exact name match
+  const exact = headers.filter((h) => norm(h) === nf);
+  if (exact.length) return exact;
+  // Type-keyword fallback for email / phone
+  if (type === "email") {
+    const match = headers.find((h) => { const n = norm(h); return n.includes("email") || n.includes("mail"); });
+    if (match) return [match];
+  }
+  if (type === "phone") {
+    const match = headers.find((h) => { const n = norm(h); return n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel"); });
+    if (match) return [match];
+  }
+  return [];
 }
 
 const COMBINE_LABELS: Record<CombineMode, string> = {
@@ -76,7 +94,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
         fieldId: field.id,
         fieldName: field.name,
         type,
-        columns: [],
+        columns: autoMatchColumns(headers, field.name, type),
         combineMode: "first" as CombineMode,
       };
     });
