@@ -18,14 +18,19 @@ export default function ColumnPicker({ fileId, headers }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const dragIdx = useRef<number | null>(null);
+  const didDrag = useRef(false);
 
   // ── drag-and-drop ──────────────────────────────────────────────────────────
   function onDragStart(e: React.DragEvent, idx: number) {
     dragIdx.current = idx;
+    didDrag.current = false;
     e.dataTransfer.effectAllowed = "move";
+    // Required by Firefox — drag is silently cancelled without this
+    e.dataTransfer.setData("text/plain", String(idx));
   }
 
-  function onDragEnter(idx: number) {
+  function onDragEnter(e: React.DragEvent, idx: number) {
+    e.preventDefault();
     if (dragIdx.current !== null && dragIdx.current !== idx) {
       setDragOverIdx(idx);
     }
@@ -34,6 +39,7 @@ export default function ColumnPicker({ fileId, headers }: Props) {
   function onDrop(e: React.DragEvent, idx: number) {
     e.preventDefault();
     if (dragIdx.current === null || dragIdx.current === idx) return;
+    didDrag.current = true;
     setSelected((prev) => {
       const next = [...prev];
       const [item] = next.splice(dragIdx.current!, 1);
@@ -47,10 +53,13 @@ export default function ColumnPicker({ fileId, headers }: Props) {
   function onDragEnd() {
     dragIdx.current = null;
     setDragOverIdx(null);
+    // Mark drag complete so the subsequent onClick doesn't exclude the chip
+    setTimeout(() => { didDrag.current = false; }, 0);
   }
 
   // ── include / exclude ──────────────────────────────────────────────────────
   function exclude(col: string) {
+    if (didDrag.current) return;
     setSelected((prev) => prev.filter((c) => c !== col));
     setExcluded((prev) => [...prev, col]);
   }
