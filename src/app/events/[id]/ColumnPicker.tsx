@@ -29,8 +29,7 @@ export default function ColumnPicker({ fileId, headers }: Props) {
     e.dataTransfer.setData("text/plain", String(idx));
   }
 
-  function onDragEnter(e: React.DragEvent, idx: number) {
-    e.preventDefault();
+  function onDragEnter(idx: number) {
     if (dragIdx.current !== null && dragIdx.current !== idx) {
       setDragOverIdx(idx);
     }
