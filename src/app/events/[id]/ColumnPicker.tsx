@@ -37,12 +37,16 @@ export default function ColumnPicker({ fileId, headers }: Props) {
 
   function onDrop(e: React.DragEvent, idx: number) {
     e.preventDefault();
-    if (dragIdx.current === null || dragIdx.current === idx) return;
+    const from = dragIdx.current;
+    if (from === null || from === idx) return;
     didDrag.current = true;
     setSelected((prev) => {
       const next = [...prev];
-      const [item] = next.splice(dragIdx.current!, 1);
-      next.splice(idx, 0, item);
+      const [item] = next.splice(from, 1);
+      // After removing `from`, indices > from shift left by 1,
+      // so insert at (idx - 1) when dropping forward to land before the target.
+      const insertAt = idx > from ? idx - 1 : idx;
+      next.splice(insertAt, 0, item);
       return next;
     });
     dragIdx.current = null;
