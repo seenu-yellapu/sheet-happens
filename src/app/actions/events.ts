@@ -8,9 +8,12 @@ export async function createEvent(formData: FormData) {
   if (!name?.trim()) return;
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
   const { data, error } = await supabase
     .from("events")
-    .insert({ name: name.trim() })
+    .insert({ name: name.trim(), user_id: user.id })
     .select("id")
     .single();
 
