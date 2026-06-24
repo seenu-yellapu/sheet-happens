@@ -13,11 +13,13 @@ export async function runValidation(
 ): Promise<void> {
   const parsed = await parseFile(buffer, fileName);
 
-  // Restrict each row to only the user-selected columns
+  // Restrict each row to only the selected columns, preserving the user's chosen order
   const filtered = parsed.map((row) => ({
     ...row,
     raw: Object.fromEntries(
-      Object.entries(row.raw).filter(([k]) => selectedColumns.includes(k))
+      selectedColumns
+        .filter((c) => c in row.raw)
+        .map((c) => [c, row.raw[c] ?? ""])
     ),
   }));
 

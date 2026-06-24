@@ -76,7 +76,7 @@ export async function GET(
 
   const { data: fileRec } = await supabase
     .from("event_files")
-    .select("name, file_validations(id)")
+    .select("name, selected_columns, file_validations(id)")
     .eq("id", id)
     .single();
 
@@ -102,6 +102,7 @@ export async function GET(
   }
 
   const platformMap = PLATFORMS[platform];
+  const colOrder = (fileRec.selected_columns as string[] | null) ?? undefined;
 
   let csvData: Record<string, string>[];
   if (isClean) {
@@ -120,5 +121,12 @@ export async function GET(
     ? platform ? `-${platform}-clean` : "-clean"
     : "-flagged";
 
-  return csvResponse(Papa.unparse(csvData), `${baseName}${suffix}.csv`);
+  // Enforce the user's chosen column order (skipped when platform-remapping changes column names)
+  const unparseOpts = colOrder && !platformMap
+    ? isClean
+      ? { columns: colOrder }
+      : { columns: [...colOrder, "Issues"] }
+    : {};
+
+  return csvResponse(Papa.unparse(csvData, unparseOpts), `${baseName}${suffix}.csv`);
 }
