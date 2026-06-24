@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { runValidation } from "@/lib/validation/run";
+import { parseFile } from "@/lib/validation/parse";
 
 const ALLOWED_TYPES = [
   "text/csv",
@@ -42,9 +42,26 @@ export async function POST(request: NextRequest, { params }: Context) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
+  // Parse headers from the file so the user can select columns before validation
+  let headers: string[] = [];
+  try {
+    const parsed = await parseFile(buffer, file.name);
+    if (parsed.length > 0) {
+      headers = Object.keys(parsed[0].raw);
+    }
+  } catch (err) {
+    console.error("Header parse error:", err);
+  }
+
   const { data: fileRecord, error: dbError } = await supabase
     .from("event_files")
-    .insert({ event_id: eventId, name: file.name, storage_path: storagePath, size: file.size })
+    .insert({
+      event_id: eventId,
+      name: file.name,
+      storage_path: storagePath,
+      size: file.size,
+      headers: headers.length ? headers : null,
+    })
     .select("id")
     .single();
 
@@ -53,12 +70,5 @@ export async function POST(request: NextRequest, { params }: Context) {
     return NextResponse.json({ error: dbError?.message ?? "DB error" }, { status: 500 });
   }
 
-  // Run validation — don't fail the upload if this errors
-  try {
-    await runValidation(supabase, fileRecord.id, buffer, file.name);
-  } catch (err) {
-    console.error("Validation error:", err);
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, fileId: fileRecord.id, headers });
 }

@@ -8,10 +8,20 @@ export async function runValidation(
   supabase: SupabaseClient,
   fileId: string,
   buffer: Buffer,
-  fileName: string
+  fileName: string,
+  selectedColumns: string[]
 ): Promise<void> {
   const parsed = await parseFile(buffer, fileName);
-  const validated = validateRows(parsed);
+
+  // Restrict each row to only the user-selected columns
+  const filtered = parsed.map((row) => ({
+    ...row,
+    raw: Object.fromEntries(
+      Object.entries(row.raw).filter(([k]) => selectedColumns.includes(k))
+    ),
+  }));
+
+  const validated = validateRows(filtered);
 
   const cleanCount = validated.filter((r) => r.isClean).length;
   const flaggedCount = validated.filter((r) => !r.isClean).length;

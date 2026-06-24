@@ -6,6 +6,7 @@ import ValidationReport from "./ValidationReport";
 import ExportButtons from "./ExportButtons";
 import DeleteEventButton from "./DeleteEventButton";
 import RenameEventInput from "./RenameEventInput";
+import ColumnPicker from "./ColumnPicker";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -29,6 +30,8 @@ interface FileRow {
   name: string;
   size: number;
   created_at: string;
+  headers: string[] | null;
+  selected_columns: string[] | null;
   file_validations: ValidationSummary[];
 }
 
@@ -47,7 +50,7 @@ export default async function EventDetailPage({ params }: Props) {
     supabase.from("events").select("id, name, created_at").eq("id", id).single(),
     supabase
       .from("event_files")
-      .select("id, name, size, created_at, file_validations(id, total_rows, clean_count, flagged_count)")
+      .select("id, name, size, created_at, headers, selected_columns, file_validations(id, total_rows, clean_count, flagged_count)")
       .eq("event_id", id)
       .order("created_at", { ascending: false }),
   ]);
@@ -100,6 +103,7 @@ export default async function EventDetailPage({ params }: Props) {
           <div className="mt-3 space-y-0.5">
             {files.map((file) => {
               const v = file.file_validations[0];
+              const isValidated = !!v;
               return (
                 <div key={file.id} className="group rounded-lg px-3 py-2.5 hover:bg-zinc-50 transition-colors">
                   <div className="flex items-center justify-between gap-4">
@@ -107,7 +111,7 @@ export default async function EventDetailPage({ params }: Props) {
                       {file.name}
                     </span>
                     <div className="flex items-center gap-3 shrink-0 text-xs text-zinc-400">
-                      {v?.flagged_count > 0 && (
+                      {isValidated && v.flagged_count > 0 && (
                         <span className="text-amber-500">{v.flagged_count} flagged</span>
                       )}
                       <span>{formatBytes(file.size)}</span>
@@ -119,12 +123,17 @@ export default async function EventDetailPage({ params }: Props) {
                       </span>
                     </div>
                   </div>
-                  <ExportButtons
-                    fileId={file.id}
-                    hasValidation={!!v}
-                    cleanCount={v?.clean_count ?? 0}
-                    flaggedCount={v?.flagged_count ?? 0}
-                  />
+
+                  {isValidated ? (
+                    <ExportButtons
+                      fileId={file.id}
+                      hasValidation
+                      cleanCount={v.clean_count}
+                      flaggedCount={v.flagged_count}
+                    />
+                  ) : file.headers?.length ? (
+                    <ColumnPicker fileId={file.id} headers={file.headers} />
+                  ) : null}
                 </div>
               );
             })}
