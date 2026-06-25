@@ -65,10 +65,75 @@ function parseCSV(buffer: Buffer): ParsedRow[] {
 function parseExcel(buffer: Buffer): ParsedRow[] {
   const wb = XLSX.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    defval: "",
-  });
+  const raw2d = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" }) as string[][];
+
+  if (isClassRoster(raw2d)) return parseClassRoster(raw2d);
+
+  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
   return data.map((row, i) => ({ index: i + 1, raw: normalizeRow(row) }));
+}
+
+function isClassRoster(rows: string[][]): boolean {
+  return rows.slice(0, 15).some(
+    (r) => r[0] === "Course" && r[3] === "Section" && r[4] === "Teacher Name"
+  );
+}
+
+function parseNameLastFirst(raw: string): { first: string; last: string } {
+  const comma = raw.indexOf(", ");
+  if (comma === -1) return { first: "", last: raw.trim() };
+  return { last: raw.slice(0, comma).trim(), first: raw.slice(comma + 2).trim() };
+}
+
+function parseClassRoster(rows: string[][]): ParsedRow[] {
+  const out: ParsedRow[] = [];
+  let idx = 1;
+  let teacher = "";
+  let homeroom = "";
+  let inStudents = false;
+  let skipNext = false;
+
+  for (const row of rows) {
+    const r = row.map((v) => String(v ?? "").trim());
+
+    if (skipNext) { skipNext = false; continue; }
+
+    // Section header labels row — next row is the section data
+    if (r[0] === "Course" && r[4] === "Teacher Name") {
+      inStudents = false;
+      skipNext = true; // will process it on peek below
+      // Peek at next row for section info
+      const nextIdx = rows.indexOf(row) + 1;
+      if (nextIdx < rows.length) {
+        const s = rows[nextIdx].map((v) => String(v ?? "").trim());
+        homeroom = s[0];
+        const t = parseNameLastFirst(s[4]);
+        // Drop middle initial (single letter followed by space or end)
+        const firstName = t.first.replace(/\s+[A-Z]\s*$/, "").trim();
+        teacher = firstName ? `${firstName} ${t.last}` : t.last;
+      }
+      continue;
+    }
+
+    if (r[0] === "Student Name") { inStudents = true; continue; }
+    if (!r[0]) { inStudents = false; continue; }
+    if (!inStudents) continue;
+
+    const { first, last } = parseNameLastFirst(r[0]);
+    out.push({
+      index: idx++,
+      raw: {
+        "First Name": first,
+        "Last Name":  last,
+        "Student ID": r[2],
+        "Grade":      r[5],
+        "Teacher":    teacher,
+        "Homeroom":   homeroom,
+      },
+    });
+  }
+
+  return out;
 }
 
 type PdfjsTextItem = {
