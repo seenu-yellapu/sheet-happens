@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveTemplate } from "@/app/actions/templates";
+import { saveTemplate, duplicateTemplate, deleteTemplate } from "@/app/actions/templates";
 import type { TemplateFieldRules, FieldType } from "@/lib/validation/types";
 
 interface EditorField {
@@ -50,6 +50,30 @@ export default function TemplateEditor({ templateId, initialName, initialFields 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  async function handleDuplicate() {
+    setMenuOpen(false);
+    await duplicateTemplate(templateId);
+    router.push("/templates");
+  }
+
+  async function handleDelete() {
+    setMenuOpen(false);
+    if (!confirm("Delete this template?")) return;
+    await deleteTemplate(templateId);
+    router.push("/templates");
+  }
 
   // Drag-and-drop refs
   const dragIdx = useRef<number | null>(null);
@@ -143,13 +167,51 @@ export default function TemplateEditor({ templateId, initialName, initialFields 
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-8">
-      {/* Name */}
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Template name"
-        className="text-xl font-semibold w-full border-0 border-b border-zinc-200 focus:border-[#2a5bd7] focus:outline-none pb-1 mb-8 bg-transparent"
-      />
+      {/* Header row: name + options menu */}
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Template name"
+          className="text-xl font-semibold flex-1 border-0 border-b border-zinc-200 focus:border-[#2a5bd7] focus:outline-none pb-1 bg-transparent"
+        />
+        <div ref={menuRef} className="relative shrink-0 mt-1">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+            aria-label="Template options"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+            </svg>
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-8 w-44 bg-white border border-zinc-200 rounded-lg shadow-lg py-1 z-20">
+              <button
+                type="button"
+                onClick={handleDuplicate}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+              >
+                <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                Duplicate
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Fields */}
       <div className="space-y-0.5 mb-4">

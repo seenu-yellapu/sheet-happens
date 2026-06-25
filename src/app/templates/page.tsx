@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { duplicateTemplate } from "@/app/actions/templates";
 import { createNewTemplate } from "@/app/actions/templates";
-import DeleteTemplateButton from "./DeleteTemplateButton";
 
 export default async function TemplatesPage() {
   const supabase = await createClient();
@@ -36,31 +34,16 @@ export default async function TemplatesPage() {
           {templates.map((t) => {
             const fieldCount = (t.template_fields as { id: string }[]).length;
             return (
-              <div key={t.id} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors group">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Link
-                    href={`/templates/${t.id}/edit`}
-                    className="text-sm font-medium text-zinc-800 hover:text-[#2a5bd7] truncate"
-                  >
-                    {t.name}
-                  </Link>
-                  <span className="text-xs text-zinc-400 shrink-0">
-                    {fieldCount} field{fieldCount !== 1 ? "s" : ""}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <form action={duplicateTemplate.bind(null, t.id)}>
-                    <button
-                      type="submit"
-                      className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors"
-                      title="Duplicate"
-                    >
-                      Duplicate
-                    </button>
-                  </form>
-                  <DeleteTemplateButton templateId={t.id} templateName={t.name} />
-                </div>
+              <div key={t.id} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors">
+                <Link
+                  href={`/templates/${t.id}/edit`}
+                  className="text-sm font-medium text-zinc-800 hover:text-[#2a5bd7] truncate"
+                >
+                  {t.name}
+                </Link>
+                <span className="text-xs text-zinc-400 shrink-0">
+                  {fieldCount} field{fieldCount !== 1 ? "s" : ""}
+                </span>
               </div>
             );
           })}
