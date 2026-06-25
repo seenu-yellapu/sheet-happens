@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import SignOutButton from "@/components/SignOutButton";
+import ProfileMenu from "@/components/ProfileMenu";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -27,17 +27,24 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${poppins.variable} h-full antialiased`}>
       <body className="min-h-full bg-white text-zinc-900">
-        <header className="border-b border-zinc-100">
-          <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
-            <Link href="/events" className="text-xl font-bold tracking-tight text-[#2a5bd7]">
+        <header style={{ backgroundColor: "#2f2f2f" }}>
+          <div className="max-w-5xl mx-auto px-6 h-14 grid grid-cols-3 items-center">
+            <Link href="/events" className="text-base font-bold tracking-tight text-white">
               SheetHappens
             </Link>
             {user && (
-              <div className="flex items-center gap-5">
-                <Link href="/templates" className="text-sm text-zinc-500 hover:text-zinc-800 transition-colors">
+              <nav className="flex items-center justify-center gap-6">
+                <Link href="/events" className="text-sm text-white/70 hover:text-white transition-colors">
+                  Events
+                </Link>
+                <Link href="/templates" className="text-sm text-white/70 hover:text-white transition-colors">
                   Templates
                 </Link>
-                <SignOutButton email={user.email ?? ""} />
+              </nav>
+            )}
+            {user && (
+              <div className="flex justify-end">
+                <ProfileMenu />
               </div>
             )}
           </div>
