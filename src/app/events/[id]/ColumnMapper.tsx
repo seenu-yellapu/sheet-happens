@@ -22,6 +22,7 @@ interface Props {
   headers: string[];
   templates: Template[];
   existingMapping?: ColumnMapping | null;
+  fileMetadata?: Record<string, string>;
 }
 
 function getFieldType(field: TemplateFieldRow): FieldType {
@@ -29,31 +30,29 @@ function getFieldType(field: TemplateFieldRow): FieldType {
   return (typeRule?.value ?? "text") as FieldType;
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[\s_\-().]/g, "");
+const normStr = (s: string) => s.toLowerCase().replace(/[\s_\-().]/g, "");
 
-function suggestColumns(headers: string[], type: FieldType): { col: string; isSuggested: boolean }[] {
-  return headers.map((col) => {
-    const n = norm(col);
-    let isSuggested = false;
-    if (type === "email") isSuggested = n.includes("email") || n.includes("mail");
-    else if (type === "phone") isSuggested = n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel");
-    return { col, isSuggested };
-  });
+function suggestColumns(headers: string[], type: FieldType): Set<string> {
+  const out = new Set<string>();
+  for (const col of headers) {
+    const n = normStr(col);
+    if (type === "email" && (n.includes("email") || n.includes("mail"))) out.add(col);
+    if (type === "phone" && (n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel"))) out.add(col);
+  }
+  return out;
 }
 
 function autoMatchColumns(headers: string[], fieldName: string, type: FieldType): string[] {
-  const nf = norm(fieldName);
-  // Exact name match
-  const exact = headers.filter((h) => norm(h) === nf);
+  const nf = normStr(fieldName);
+  const exact = headers.filter((h) => normStr(h) === nf);
   if (exact.length) return exact;
-  // Type-keyword fallback for email / phone
   if (type === "email") {
-    const match = headers.find((h) => { const n = norm(h); return n.includes("email") || n.includes("mail"); });
-    if (match) return [match];
+    const m = headers.find((h) => { const n = normStr(h); return n.includes("email") || n.includes("mail"); });
+    if (m) return [m];
   }
   if (type === "phone") {
-    const match = headers.find((h) => { const n = norm(h); return n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel"); });
-    if (match) return [match];
+    const m = headers.find((h) => { const n = normStr(h); return n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel"); });
+    if (m) return [m];
   }
   return [];
 }
@@ -65,7 +64,19 @@ const COMBINE_LABELS: Record<CombineMode, string> = {
   first:     "first value only",
 };
 
-export default function ColumnMapper({ fileId, headers, templates, existingMapping }: Props) {
+function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`relative w-8 h-4 rounded-full transition-colors focus:outline-none shrink-0 ${on ? "bg-[#2a5bd7]" : "bg-zinc-200"}`}
+    >
+      <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${on ? "translate-x-4" : "translate-x-0.5"}`} />
+    </button>
+  );
+}
+
+export default function ColumnMapper({ fileId, headers, templates, existingMapping, fileMetadata = {} }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +84,12 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
   const defaultTemplateId = existingMapping?.templateId ?? templates[0]?.id ?? "";
   const [selectedTemplateId, setSelectedTemplateId] = useState(defaultTemplateId);
   const [assignments, setAssignments] = useState<FieldAssignment[]>([]);
+  const [staticValues, setStaticValues] = useState<Record<string, string>>(
+    existingMapping?.staticValues ?? {}
+  );
+  const [metadataIncludes, setMetadataIncludes] = useState<Record<string, boolean>>(
+    existingMapping?.metadataIncludes ?? {}
+  );
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -81,28 +98,30 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
     ? [...template.template_fields].sort((a, b) => a.position - b.position)
     : [];
 
-  // Initialise assignments when template changes
+  const metadataEntries = Object.entries(fileMetadata);
+
   useEffect(() => {
     if (!template) return;
     const mapped = sortedFields.map((field) => {
       const type = getFieldType(field);
-      // Reuse saved mapping for this field if it exists
-      const saved = existingMapping?.templateId === selectedTemplateId
-        ? existingMapping.fields.find((f) => f.fieldName === field.name)
-        : undefined;
-      return saved ?? {
-        fieldId: field.id,
-        fieldName: field.name,
-        type,
-        columns: autoMatchColumns(headers, field.name, type),
-        combineMode: "first" as CombineMode,
-      };
+      const saved =
+        existingMapping?.templateId === selectedTemplateId
+          ? existingMapping.fields.find((f) => f.fieldName === field.name)
+          : undefined;
+      return (
+        saved ?? {
+          fieldId: field.id,
+          fieldName: field.name,
+          type,
+          columns: autoMatchColumns(headers, field.name, type),
+          combineMode: "first" as CombineMode,
+        }
+      );
     });
     setAssignments(mapped);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTemplateId]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -118,8 +137,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
       prev.map((a) => {
         if (a.fieldId !== fieldId) return a;
         const has = a.columns.includes(col);
-        const columns = has ? a.columns.filter((c) => c !== col) : [...a.columns, col];
-        return { ...a, columns };
+        return { ...a, columns: has ? a.columns.filter((c) => c !== col) : [...a.columns, col] };
       })
     );
   }
@@ -132,12 +150,16 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
 
   function handleConfirm() {
     setError(null);
-    const mapping: ColumnMapping = { templateId: selectedTemplateId, fields: assignments };
     startTransition(async () => {
       const res = await fetch(`/api/files/${fileId}/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId: selectedTemplateId, columnMapping: assignments }),
+        body: JSON.stringify({
+          templateId: selectedTemplateId,
+          columnMapping: assignments,
+          staticValues,
+          metadataIncludes,
+        }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -157,13 +179,10 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
     );
   }
 
-  // All columns currently assigned to any field
-  const allMappedCols = new Set(assignments.flatMap((a) => a.columns));
-
   return (
-    <div className="mt-3 border border-zinc-100 rounded-lg px-4 py-3">
+    <div className="mt-3 border border-zinc-100 rounded-lg px-4 py-3 space-y-5">
       {/* Template picker */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2">
         <span className="text-xs text-zinc-500 shrink-0">Template</span>
         <select
           value={selectedTemplateId}
@@ -176,7 +195,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
         </select>
       </div>
 
-      {/* Field rows */}
+      {/* Section 1: Field mapping */}
       <div className="space-y-3" ref={dropdownRef}>
         {sortedFields.map((field) => {
           const type = getFieldType(field);
@@ -184,25 +203,27 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
           if (!assignment) return null;
 
           const selectedCols = assignment.columns;
-          const suggestions = suggestColumns(headers, type);
           const isTyped = type === "email" || type === "phone";
+          const suggested = suggestColumns(headers, type);
 
-          // For typed fields, only show type-matched + already-selected columns
-          const relevantCols = isTyped
-            ? headers.filter((h) => selectedCols.includes(h) || suggestions.find((s) => s.col === h)?.isSuggested)
-            : headers;
-          const dropdownCols = [
-            ...relevantCols.filter((h) => selectedCols.includes(h)),
-            ...relevantCols.filter((h) => !selectedCols.includes(h)),
-          ];
+          const dropdownCols = isTyped
+            ? [
+                ...headers.filter((h) => selectedCols.includes(h)),
+                ...headers.filter((h) => !selectedCols.includes(h) && suggested.has(h)),
+              ]
+            : [
+                ...headers.filter((h) => selectedCols.includes(h)),
+                ...headers.filter((h) => !selectedCols.includes(h)),
+              ];
+
+          const hasNoColumns = selectedCols.length === 0;
 
           return (
             <div key={field.id}>
               <div className="flex items-start gap-3">
-                <span className="text-xs text-zinc-600 pt-1 w-28 shrink-0">{field.name}</span>
+                <span className="text-xs text-zinc-600 pt-1.5 w-28 shrink-0">{field.name}</span>
 
                 <div className="flex-1 min-w-0">
-                  {/* Tags + add button */}
                   <div className="flex flex-wrap items-center gap-1">
                     {selectedCols.map((col) => (
                       <span
@@ -214,9 +235,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                           type="button"
                           onClick={() => toggleColumn(field.id, col)}
                           className="ml-0.5 hover:text-red-500 leading-none"
-                        >
-                          ×
-                        </button>
+                        >×</button>
                       </span>
                     ))}
 
@@ -224,9 +243,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                     <div className="relative">
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenDropdownId(openDropdownId === field.id ? null : field.id)
-                        }
+                        onClick={() => setOpenDropdownId(openDropdownId === field.id ? null : field.id)}
                         className="text-xs text-zinc-400 hover:text-[#2a5bd7] px-1 py-0.5 rounded transition-colors"
                       >
                         + Add
@@ -241,9 +258,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                                 key={col}
                                 type="button"
                                 onClick={() => toggleColumn(field.id, col)}
-                                className={`flex items-center w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 transition-colors ${
-                                  isSelected ? "text-[#2a5bd7]" : "text-zinc-700"
-                                }`}
+                                className={`flex items-center w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 transition-colors ${isSelected ? "text-[#2a5bd7]" : "text-zinc-700"}`}
                               >
                                 {isSelected && <span className="mr-2 shrink-0">✓</span>}
                                 {col}
@@ -256,9 +271,22 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                         </div>
                       )}
                     </div>
+
+                    {/* Inline static value when no column is mapped */}
+                    {hasNoColumns && (
+                      <input
+                        type="text"
+                        placeholder="or type a fixed value…"
+                        value={staticValues[field.id] ?? ""}
+                        onChange={(e) =>
+                          setStaticValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                        }
+                        className="text-xs border border-zinc-200 rounded px-2 py-0.5 focus:outline-none focus:border-[#2a5bd7] w-44 text-zinc-600 placeholder:text-zinc-300"
+                      />
+                    )}
                   </div>
 
-                  {/* Output as — only when 2+ columns */}
+                  {/* Combine mode */}
                   {selectedCols.length > 1 && (
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className="text-xs text-zinc-400">Output as</span>
@@ -280,13 +308,36 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
         })}
       </div>
 
-      {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
+      {/* Section 2: File metadata */}
+      {metadataEntries.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-zinc-500 mb-2">File metadata</p>
+          <div className="space-y-1.5">
+            {metadataEntries.map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-3 rounded-md border border-zinc-100 px-3 py-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Toggle
+                    on={metadataIncludes[label] ?? false}
+                    onToggle={() =>
+                      setMetadataIncludes((prev) => ({ ...prev, [label]: !(prev[label] ?? false) }))
+                    }
+                  />
+                  <span className="text-xs font-medium text-zinc-700 shrink-0">{label}</span>
+                </div>
+                <span className="text-xs text-zinc-400 truncate">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
 
       <button
         type="button"
         onClick={handleConfirm}
         disabled={isPending}
-        className="mt-4 text-xs font-medium text-white bg-[#2a5bd7] hover:bg-blue-700 disabled:opacity-40 px-3 py-1.5 rounded-md transition-colors"
+        className="text-xs font-medium text-white bg-[#2a5bd7] hover:bg-blue-700 disabled:opacity-40 px-3 py-1.5 rounded-md transition-colors"
       >
         {isPending ? "Validating…" : "Confirm mapping →"}
       </button>

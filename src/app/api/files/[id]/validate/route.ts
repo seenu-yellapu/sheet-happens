@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, { params }: Context) {
 
   const { data: fileRec } = await supabase
     .from("event_files")
-    .select("name, storage_path")
+    .select("name, storage_path, file_metadata")
     .eq("id", fileId)
     .single();
 
@@ -41,14 +41,15 @@ export async function POST(request: NextRequest, { params }: Context) {
   }
 
   const buffer = Buffer.from(await storageData.arrayBuffer());
+  const fileMetadata = (fileRec.file_metadata as Record<string, string>) ?? {};
 
-  // Delete any previous validation results
   await supabase.from("file_validations").delete().eq("file_id", fileId);
 
   try {
     if (body.templateId && body.columnMapping) {
-      // Template-based validation
       const mapping: FieldAssignment[] = body.columnMapping;
+      const staticValues: Record<string, string> = body.staticValues ?? {};
+      const metadataIncludes: Record<string, boolean> = body.metadataIncludes ?? {};
 
       const { data: templateData } = await supabase
         .from("template_fields")
@@ -65,16 +66,27 @@ export async function POST(request: NextRequest, { params }: Context) {
 
       await supabase
         .from("event_files")
-        .update({ template_id: body.templateId, column_mapping: body.columnMapping, selected_columns: null })
+        .update({
+          template_id: body.templateId,
+          column_mapping: {
+            templateId: body.templateId,
+            fields: mapping,
+            staticValues,
+            metadataIncludes,
+          },
+          selected_columns: null,
+        })
         .eq("id", fileId);
 
       await runValidation(supabase, fileId, buffer, fileRec.name as string, {
         type: "template",
         fields,
         mapping,
+        staticValues,
+        fileMetadata,
+        metadataIncludes,
       });
     } else {
-      // Legacy: selectedColumns only
       const selectedColumns: string[] = body.selectedColumns ?? [];
       if (!selectedColumns.length) {
         return NextResponse.json({ error: "selectedColumns must be a non-empty array" }, { status: 400 });

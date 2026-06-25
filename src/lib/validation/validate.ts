@@ -110,11 +110,13 @@ export function validateRows(rows: ParsedRow[]): ValidatedRow[] {
 export function validateRowsWithTemplate(
   rows: ParsedRow[],
   fields: TemplateField[],
-  mapping: FieldAssignment[]
+  mapping: FieldAssignment[],
+  staticValues: Record<string, string> = {},
+  fileMetadata: Record<string, string> = {},
+  metadataIncludes: Record<string, boolean> = {}
 ): ValidatedRow[] {
   if (!rows.length) return [];
 
-  // One dedup map per field that has flagDuplicates enabled, keyed by field.id
   const seenMaps = new Map<string, Map<string, number>>();
   for (const field of fields) {
     if (field.rules.flagDuplicates) seenMaps.set(field.id, new Map());
@@ -125,15 +127,24 @@ export function validateRowsWithTemplate(
     const outputRow: Record<string, string> = {};
 
     for (const assignment of mapping) {
-      // Match by fieldName so renames don't break saved mappings
       const field = fields.find((f) => f.name === assignment.fieldName);
       if (!field) continue;
 
       const { rules } = field;
+
+      // Static value — no source column mapped
+      if (assignment.columns.length === 0) {
+        const staticVal = staticValues[assignment.fieldId] ?? "";
+        outputRow[assignment.fieldName] = staticVal;
+        if (rules.required && !staticVal) {
+          issues.push({ field: assignment.fieldName, message: `Missing ${field.name}` });
+        }
+        continue;
+      }
+
       const sourceValues = assignment.columns.map((col) => (row.raw[col] ?? "").trim());
       const isSeparate = assignment.combineMode === "separate" && assignment.columns.length > 1;
 
-      // Build output record
       if (isSeparate) {
         assignment.columns.forEach((col, i) => {
           outputRow[`${assignment.fieldName} (${col})`] = sourceValues[i];
@@ -143,11 +154,9 @@ export function validateRowsWithTemplate(
       } else if (assignment.combineMode === "comma") {
         outputRow[assignment.fieldName] = sourceValues.filter(Boolean).join(", ");
       } else {
-        // 'first' or single column
         outputRow[assignment.fieldName] = sourceValues.find((v) => v) ?? sourceValues[0] ?? "";
       }
 
-      // Required: all source columns empty
       if (rules.required && sourceValues.every((v) => !v)) {
         issues.push({ field: assignment.fieldName, message: `Missing ${field.name}` });
         continue;
@@ -174,12 +183,16 @@ export function validateRowsWithTemplate(
         if (rules.minDigits && rules.type === "phone") {
           const digits = value.replace(/\D/g, "");
           if (digits.length !== 10) {
-            issues.push({ field: label, message: `Invalid phone — got ${digits.length} digit${digits.length === 1 ? "" : "s"}, expected 10` });
+            issues.push({
+              field: label,
+              message: `Invalid phone — got ${digits.length} digit${digits.length === 1 ? "" : "s"}, expected 10`,
+            });
           }
         }
 
         if (seenMap && rules.flagDuplicates) {
-          const key = rules.type === "phone" ? value.replace(/\D/g, "") : value.toLowerCase();
+          const key =
+            rules.type === "phone" ? value.replace(/\D/g, "") : value.toLowerCase();
           if (key) {
             const prev = seenMap.get(key);
             if (prev !== undefined) {
@@ -189,6 +202,13 @@ export function validateRowsWithTemplate(
             }
           }
         }
+      }
+    }
+
+    // Append included metadata as static columns on every row
+    for (const [key, included] of Object.entries(metadataIncludes)) {
+      if (included && fileMetadata[key] !== undefined) {
+        outputRow[key] = fileMetadata[key];
       }
     }
 

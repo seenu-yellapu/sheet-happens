@@ -44,11 +44,13 @@ export async function POST(request: NextRequest, { params }: Context) {
 
   // Parse headers from the file so the user can select columns before validation
   let headers: string[] = [];
+  let fileMetadata: Record<string, string> = {};
   try {
     const parsed = await parseFile(buffer, file.name);
-    if (parsed.length > 0) {
-      headers = Object.keys(parsed[0].raw);
+    if (parsed.rows.length > 0) {
+      headers = Object.keys(parsed.rows[0].raw);
     }
+    fileMetadata = parsed.metadata;
   } catch (err) {
     console.error("Header parse error:", err);
   }
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest, { params }: Context) {
       storage_path: storagePath,
       size: file.size,
       headers: headers.length ? headers : null,
+      file_metadata: Object.keys(fileMetadata).length ? fileMetadata : null,
     })
     .select("id")
     .single();

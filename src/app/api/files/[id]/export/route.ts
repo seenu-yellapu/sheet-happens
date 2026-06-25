@@ -103,15 +103,28 @@ export async function GET(
 
   const platformMap = PLATFORMS[platform];
 
-  // Derive column order from template mapping if present, otherwise fall back to selected_columns
   let colOrder: string[] | undefined;
-  const colMapping = fileRec.column_mapping as Array<{ fieldName: string; columns: string[]; combineMode: string }> | null;
-  if (colMapping) {
-    colOrder = colMapping.flatMap((f) =>
+  const rawMapping = fileRec.column_mapping;
+  if (Array.isArray(rawMapping)) {
+    // Legacy format stored as FieldAssignment[]
+    const arr = rawMapping as Array<{ fieldName: string; columns: string[]; combineMode: string }>;
+    colOrder = arr.flatMap((f) =>
       f.combineMode === "separate" && f.columns.length > 1
         ? f.columns.map((c) => `${f.fieldName} (${c})`)
         : [f.fieldName]
     );
+  } else if (rawMapping && typeof rawMapping === "object" && "fields" in (rawMapping as object)) {
+    const cm = rawMapping as { fields: Array<{ fieldName: string; columns: string[]; combineMode: string }>; staticValues?: Record<string,string>; metadataIncludes?: Record<string,boolean> };
+    colOrder = cm.fields.flatMap((f) =>
+      f.combineMode === "separate" && f.columns.length > 1
+        ? f.columns.map((c) => `${f.fieldName} (${c})`)
+        : [f.fieldName]
+    );
+    if (cm.metadataIncludes) {
+      for (const [key, included] of Object.entries(cm.metadataIncludes)) {
+        if (included) colOrder.push(key);
+      }
+    }
   } else {
     colOrder = (fileRec.selected_columns as string[] | null) ?? undefined;
   }

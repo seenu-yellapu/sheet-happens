@@ -34,6 +34,7 @@ interface FileRow {
   headers: string[] | null;
   selected_columns: string[] | null;
   column_mapping: ColumnMapping | null;
+  file_metadata: Record<string, string> | null;
   file_validations: ValidationSummary[];
 }
 
@@ -52,7 +53,7 @@ export default async function EventDetailPage({ params }: Props) {
     supabase.from("events").select("id, name, created_at").eq("id", id).single(),
     supabase
       .from("event_files")
-      .select("id, name, size, created_at, headers, selected_columns, column_mapping, file_validations(id, total_rows, clean_count, flagged_count)")
+      .select("id, name, size, created_at, headers, selected_columns, column_mapping, file_metadata, file_validations(id, total_rows, clean_count, flagged_count)")
       .eq("event_id", id)
       .order("created_at", { ascending: false }),
     supabase
@@ -144,6 +145,7 @@ export default async function EventDetailPage({ params }: Props) {
                       headers={file.headers}
                       templates={templateList}
                       existingMapping={file.column_mapping}
+                      fileMetadata={file.file_metadata ?? {}}
                     />
                   ) : null}
                 </div>

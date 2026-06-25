@@ -14,6 +14,9 @@ interface TemplateOptions {
   type: "template";
   fields: TemplateField[];
   mapping: FieldAssignment[];
+  staticValues?: Record<string, string>;
+  fileMetadata?: Record<string, string>;
+  metadataIncludes?: Record<string, boolean>;
 }
 
 export async function runValidation(
@@ -23,11 +26,18 @@ export async function runValidation(
   fileName: string,
   options: LegacyOptions | TemplateOptions
 ): Promise<void> {
-  const parsed = await parseFile(buffer, fileName);
+  const { rows: parsed } = await parseFile(buffer, fileName);
 
   const validated =
     options.type === "template"
-      ? validateRowsWithTemplate(parsed, options.fields, options.mapping)
+      ? validateRowsWithTemplate(
+          parsed,
+          options.fields,
+          options.mapping,
+          options.staticValues,
+          options.fileMetadata,
+          options.metadataIncludes
+        )
       : validateRows(
           parsed.map((row) => ({
             ...row,
@@ -44,7 +54,12 @@ export async function runValidation(
 
   const { data: validation, error: vErr } = await supabase
     .from("file_validations")
-    .insert({ file_id: fileId, total_rows: validated.length, clean_count: cleanCount, flagged_count: flaggedCount })
+    .insert({
+      file_id: fileId,
+      total_rows: validated.length,
+      clean_count: cleanCount,
+      flagged_count: flaggedCount,
+    })
     .select("id")
     .single();
 

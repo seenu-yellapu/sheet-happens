@@ -27,4 +27,6 @@ export interface FieldAssignment {
 export interface ColumnMapping {
   templateId: string;
   fields: FieldAssignment[];
+  staticValues?: Record<string, string>;      // fieldId → fixed value
+  metadataIncludes?: Record<string, boolean>; // metadata label → included in export
 }
