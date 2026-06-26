@@ -32,16 +32,6 @@ function getFieldType(field: TemplateFieldRow): FieldType {
 
 const normStr = (s: string) => s.toLowerCase().replace(/[\s_\-().]/g, "");
 
-function suggestColumns(headers: string[], type: FieldType): Set<string> {
-  const out = new Set<string>();
-  for (const col of headers) {
-    const n = normStr(col);
-    if (type === "email" && (n.includes("email") || n.includes("mail"))) out.add(col);
-    if (type === "phone" && (n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel"))) out.add(col);
-  }
-  return out;
-}
-
 function autoMatchColumns(headers: string[], fieldName: string, type: FieldType): string[] {
   const nf = normStr(fieldName);
   const exact = headers.filter((h) => normStr(h) === nf);
@@ -90,8 +80,9 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
   const [metadataIncludes, setMetadataIncludes] = useState<Record<string, boolean>>(
     existingMapping?.metadataIncludes ?? {}
   );
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const template = templates.find((t) => t.id === selectedTemplateId);
   const sortedFields = template
@@ -122,30 +113,63 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTemplateId]);
 
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpenDropdownId(null);
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  function toggleColumn(fieldId: string, col: string) {
+  function addColumn(fieldId: string, col: string) {
     setAssignments((prev) =>
       prev.map((a) => {
-        if (a.fieldId !== fieldId) return a;
-        const has = a.columns.includes(col);
-        return { ...a, columns: has ? a.columns.filter((c) => c !== col) : [...a.columns, col] };
+        if (a.fieldId !== fieldId || a.columns.includes(col)) return a;
+        return { ...a, columns: [...a.columns, col] };
       })
     );
+    setInputValues((prev) => ({ ...prev, [fieldId]: "" }));
+    setTimeout(() => inputRefs.current[fieldId]?.focus(), 0);
+  }
+
+  function removeColumn(fieldId: string, col: string) {
+    setAssignments((prev) =>
+      prev.map((a) =>
+        a.fieldId === fieldId ? { ...a, columns: a.columns.filter((c) => c !== col) } : a
+      )
+    );
+  }
+
+  function removeStaticValue(fieldId: string) {
+    setStaticValues((prev) => {
+      const n = { ...prev };
+      delete n[fieldId];
+      return n;
+    });
   }
 
   function setCombineMode(fieldId: string, mode: CombineMode) {
     setAssignments((prev) =>
       prev.map((a) => (a.fieldId === fieldId ? { ...a, combineMode: mode } : a))
     );
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>, fieldId: string) {
+    const text = (inputValues[fieldId] ?? "").trim();
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (!text) return;
+      const matchingCol = headers.find((h) => h.toLowerCase() === text.toLowerCase());
+      if (matchingCol) {
+        addColumn(fieldId, matchingCol);
+      } else {
+        setStaticValues((prev) => ({ ...prev, [fieldId]: text }));
+        setInputValues((prev) => ({ ...prev, [fieldId]: "" }));
+      }
+    } else if (e.key === "Backspace" && !text) {
+      const assignment = assignments.find((a) => a.fieldId === fieldId);
+      if (assignment && assignment.columns.length > 0) {
+        removeColumn(fieldId, assignment.columns[assignment.columns.length - 1]);
+      } else if (staticValues[fieldId]) {
+        removeStaticValue(fieldId);
+      }
+    } else if (e.key === "Escape") {
+      setActiveFieldId(null);
+      inputRefs.current[fieldId]?.blur();
+    }
   }
 
   function handleConfirm() {
@@ -196,95 +220,101 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
       </div>
 
       {/* Section 1: Field mapping */}
-      <div className="space-y-3" ref={dropdownRef}>
+      <div className="space-y-2.5">
         {sortedFields.map((field) => {
           const type = getFieldType(field);
           const assignment = assignments.find((a) => a.fieldId === field.id);
           if (!assignment) return null;
 
           const selectedCols = assignment.columns;
-          const isTyped = type === "email" || type === "phone";
-          const suggested = suggestColumns(headers, type);
+          const staticVal = staticValues[field.id];
+          const query = (inputValues[field.id] ?? "").toLowerCase();
+          const isActive = activeFieldId === field.id;
 
-          const dropdownCols = isTyped
-            ? [
-                ...headers.filter((h) => selectedCols.includes(h)),
-                ...headers.filter((h) => !selectedCols.includes(h) && suggested.has(h)),
-              ]
-            : [
-                ...headers.filter((h) => selectedCols.includes(h)),
-                ...headers.filter((h) => !selectedCols.includes(h)),
-              ];
+          const availableCols = headers.filter((h) => !selectedCols.includes(h));
+          const filteredCols = query
+            ? availableCols.filter((h) => h.toLowerCase().includes(query))
+            : availableCols;
 
-          const hasNoColumns = selectedCols.length === 0;
+          const isEmpty = selectedCols.length === 0 && !staticVal;
 
           return (
             <div key={field.id}>
               <div className="flex items-start gap-3">
-                <span className="text-xs text-zinc-600 pt-1.5 w-28 shrink-0">{field.name}</span>
+                <span className="text-xs text-zinc-500 pt-2 w-28 shrink-0">{field.name}</span>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-1">
+                <div className="flex-1 min-w-0 relative">
+                  {/* Unified tag input */}
+                  <div
+                    className={`flex flex-wrap items-center gap-1 border rounded-md px-2 py-1.5 cursor-text min-h-[34px] transition-colors ${
+                      isActive ? "border-[#2a5bd7]" : "border-zinc-200"
+                    }`}
+                    onClick={() => inputRefs.current[field.id]?.focus()}
+                  >
+                    {/* Blue column tags */}
                     {selectedCols.map((col) => (
                       <span
                         key={col}
-                        className="flex items-center gap-0.5 text-xs bg-blue-50 text-[#2a5bd7] border border-[#2a5bd7]/30 rounded px-2 py-0.5"
+                        className="flex items-center gap-0.5 text-xs bg-blue-50 text-[#2a5bd7] border border-[#2a5bd7]/30 rounded px-1.5 py-0.5 shrink-0"
                       >
                         {col}
                         <button
                           type="button"
-                          onClick={() => toggleColumn(field.id, col)}
+                          onMouseDown={(e) => { e.preventDefault(); removeColumn(field.id, col); }}
                           className="ml-0.5 hover:text-red-500 leading-none"
                         >×</button>
                       </span>
                     ))}
 
-                    {/* Dropdown trigger */}
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setOpenDropdownId(openDropdownId === field.id ? null : field.id)}
-                        className="text-xs text-zinc-400 hover:text-[#2a5bd7] px-1 py-0.5 rounded transition-colors"
-                      >
-                        + Add
-                      </button>
+                    {/* Gray static value tag */}
+                    {staticVal && (
+                      <span className="flex items-center gap-0.5 text-xs bg-zinc-100 text-zinc-600 border border-zinc-200 rounded px-1.5 py-0.5 shrink-0">
+                        {staticVal}
+                        <button
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); removeStaticValue(field.id); }}
+                          className="ml-0.5 hover:text-red-500 leading-none"
+                        >×</button>
+                      </span>
+                    )}
 
-                      {openDropdownId === field.id && (
-                        <div className="absolute top-6 left-0 z-20 bg-white border border-zinc-200 rounded-lg shadow-lg w-52 max-h-52 overflow-y-auto">
-                          {dropdownCols.map((col) => {
-                            const isSelected = selectedCols.includes(col);
-                            return (
-                              <button
-                                key={col}
-                                type="button"
-                                onClick={() => toggleColumn(field.id, col)}
-                                className={`flex items-center w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 transition-colors ${isSelected ? "text-[#2a5bd7]" : "text-zinc-700"}`}
-                              >
-                                {isSelected && <span className="mr-2 shrink-0">✓</span>}
-                                {col}
-                              </button>
-                            );
-                          })}
-                          {dropdownCols.length === 0 && (
-                            <p className="px-3 py-2 text-xs text-zinc-400">No matching columns</p>
-                          )}
-                        </div>
+                    {/* Text input */}
+                    <input
+                      ref={(el) => { inputRefs.current[field.id] = el; }}
+                      type="text"
+                      value={inputValues[field.id] ?? ""}
+                      onChange={(e) => setInputValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                      onFocus={() => setActiveFieldId(field.id)}
+                      onBlur={() => setTimeout(() => setActiveFieldId((id) => id === field.id ? null : id), 150)}
+                      onKeyDown={(e) => handleKeyDown(e, field.id)}
+                      placeholder={isEmpty ? "Select column or type a fixed value…" : ""}
+                      className="flex-1 min-w-[120px] text-xs outline-none bg-transparent placeholder:text-zinc-300 text-zinc-700"
+                    />
+                  </div>
+
+                  {/* Dropdown */}
+                  {isActive && (
+                    <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-zinc-200 rounded-lg shadow-lg w-full max-h-48 overflow-y-auto">
+                      {filteredCols.length > 0 ? (
+                        filteredCols.map((col) => (
+                          <button
+                            key={col}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); addColumn(field.id, col); }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 transition-colors"
+                          >
+                            {col}
+                          </button>
+                        ))
+                      ) : query ? (
+                        <p className="px-3 py-2 text-xs text-zinc-400">
+                          Press Enter to add &ldquo;{inputValues[field.id]}&rdquo; as a fixed value
+                        </p>
+                      ) : (
+                        <p className="px-3 py-2 text-xs text-zinc-400">No columns left to add</p>
                       )}
                     </div>
-
-                    {/* Inline static value when no column is mapped */}
-                    {hasNoColumns && (
-                      <input
-                        type="text"
-                        placeholder="or type a fixed value…"
-                        value={staticValues[field.id] ?? ""}
-                        onChange={(e) =>
-                          setStaticValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                        }
-                        className="text-xs border border-zinc-200 rounded px-2 py-0.5 focus:outline-none focus:border-[#2a5bd7] w-44 text-zinc-600 placeholder:text-zinc-300"
-                      />
-                    )}
-                  </div>
+                  )}
 
                   {/* Combine mode */}
                   {selectedCols.length > 1 && (
