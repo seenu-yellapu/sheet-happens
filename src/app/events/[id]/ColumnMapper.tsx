@@ -36,13 +36,17 @@ function autoMatchColumns(headers: string[], fieldName: string, type: FieldType)
   const nf = normStr(fieldName);
   const exact = headers.filter((h) => normStr(h) === nf);
   if (exact.length) return exact;
-  if (type === "email") {
-    const m = headers.find((h) => { const n = normStr(h); return n.includes("email") || n.includes("mail"); });
-    if (m) return [m];
+
+  const nameHasEmail = nf.includes("email") || nf.includes("mail");
+  const nameHasPhone = nf.includes("phone") || nf.includes("mobile") || nf.includes("cell") || nf.includes("tel");
+
+  if (type === "email" || nameHasEmail) {
+    const matches = headers.filter((h) => { const n = normStr(h); return n.includes("email") || n.includes("mail"); });
+    if (matches.length) return matches;
   }
-  if (type === "phone") {
-    const m = headers.find((h) => { const n = normStr(h); return n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel"); });
-    if (m) return [m];
+  if (type === "phone" || nameHasPhone) {
+    const matches = headers.filter((h) => { const n = normStr(h); return n.includes("phone") || n.includes("mobile") || n.includes("cell") || n.includes("tel"); });
+    if (matches.length) return matches;
   }
   return [];
 }
