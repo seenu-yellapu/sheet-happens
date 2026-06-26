@@ -114,17 +114,12 @@ export async function GET(
         : [f.fieldName]
     );
   } else if (rawMapping && typeof rawMapping === "object" && "fields" in (rawMapping as object)) {
-    const cm = rawMapping as { fields: Array<{ fieldName: string; columns: string[]; combineMode: string }>; staticValues?: Record<string,string>; metadataIncludes?: Record<string,boolean> };
+    const cm = rawMapping as { fields: Array<{ fieldName: string; columns: string[]; combineMode: string }> };
     colOrder = cm.fields.flatMap((f) =>
       f.combineMode === "separate" && f.columns.length > 1
         ? f.columns.map((c) => `${f.fieldName} (${c})`)
         : [f.fieldName]
     );
-    if (cm.metadataIncludes) {
-      for (const [key, included] of Object.entries(cm.metadataIncludes)) {
-        if (included) colOrder.push(key);
-      }
-    }
   } else {
     colOrder = (fileRec.selected_columns as string[] | null) ?? undefined;
   }

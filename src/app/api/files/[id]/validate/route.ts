@@ -49,7 +49,6 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (body.templateId && body.columnMapping) {
       const mapping: FieldAssignment[] = body.columnMapping;
       const staticValues: Record<string, string> = body.staticValues ?? {};
-      const metadataIncludes: Record<string, boolean> = body.metadataIncludes ?? {};
 
       const { data: templateData } = await supabase
         .from("template_fields")
@@ -72,7 +71,6 @@ export async function POST(request: NextRequest, { params }: Context) {
             templateId: body.templateId,
             fields: mapping,
             staticValues,
-            metadataIncludes,
           },
           selected_columns: null,
         })
@@ -84,7 +82,6 @@ export async function POST(request: NextRequest, { params }: Context) {
         mapping,
         staticValues,
         fileMetadata,
-        metadataIncludes,
       });
     } else {
       const selectedColumns: string[] = body.selectedColumns ?? [];

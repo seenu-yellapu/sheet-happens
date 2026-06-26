@@ -16,7 +16,6 @@ interface TemplateOptions {
   mapping: FieldAssignment[];
   staticValues?: Record<string, string>;
   fileMetadata?: Record<string, string>;
-  metadataIncludes?: Record<string, boolean>;
 }
 
 export async function runValidation(
@@ -36,7 +35,6 @@ export async function runValidation(
           options.mapping,
           options.staticValues,
           options.fileMetadata,
-          options.metadataIncludes
         )
       : validateRows(
           parsed.map((row) => ({

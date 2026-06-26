@@ -113,7 +113,6 @@ export function validateRowsWithTemplate(
   mapping: FieldAssignment[],
   staticValues: Record<string, string> = {},
   fileMetadata: Record<string, string> = {},
-  metadataIncludes: Record<string, boolean> = {}
 ): ValidatedRow[] {
   if (!rows.length) return [];
 
@@ -142,7 +141,7 @@ export function validateRowsWithTemplate(
         continue;
       }
 
-      const sourceValues = assignment.columns.map((col) => (row.raw[col] ?? "").trim());
+      const sourceValues = assignment.columns.map((col) => (row.raw[col] ?? fileMetadata[col] ?? "").trim());
       const isSeparate = assignment.combineMode === "separate" && assignment.columns.length > 1;
 
       if (isSeparate) {
@@ -202,13 +201,6 @@ export function validateRowsWithTemplate(
             }
           }
         }
-      }
-    }
-
-    // Append included metadata as static columns on every row
-    for (const [key, included] of Object.entries(metadataIncludes)) {
-      if (included && fileMetadata[key] !== undefined) {
-        outputRow[key] = fileMetadata[key];
       }
     }
 

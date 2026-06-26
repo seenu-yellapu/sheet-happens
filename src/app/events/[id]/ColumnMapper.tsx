@@ -54,18 +54,6 @@ const COMBINE_LABELS: Record<CombineMode, string> = {
   first:     "first value only",
 };
 
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`relative w-8 h-4 rounded-full transition-colors focus:outline-none shrink-0 ${on ? "bg-[#2a5bd7]" : "bg-zinc-200"}`}
-    >
-      <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${on ? "translate-x-4" : "translate-x-0.5"}`} />
-    </button>
-  );
-}
-
 export default function ColumnMapper({ fileId, headers, templates, existingMapping, fileMetadata = {} }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -76,9 +64,6 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
   const [assignments, setAssignments] = useState<FieldAssignment[]>([]);
   const [staticValues, setStaticValues] = useState<Record<string, string>>(
     existingMapping?.staticValues ?? {}
-  );
-  const [metadataIncludes, setMetadataIncludes] = useState<Record<string, boolean>>(
-    existingMapping?.metadataIncludes ?? {}
   );
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
@@ -182,7 +167,6 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
           templateId: selectedTemplateId,
           columnMapping: assignments,
           staticValues,
-          metadataIncludes,
         }),
       });
       if (!res.ok) {
@@ -219,7 +203,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
         </select>
       </div>
 
-      {/* Section 1: Field mapping */}
+      {/* Field mapping */}
       <div className="space-y-2.5">
         {sortedFields.map((field) => {
           const type = getFieldType(field);
@@ -231,10 +215,20 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
           const query = (inputValues[field.id] ?? "").toLowerCase();
           const isActive = activeFieldId === field.id;
 
+          // Columns not yet selected, filtered by query
           const availableCols = headers.filter((h) => !selectedCols.includes(h));
           const filteredCols = query
             ? availableCols.filter((h) => h.toLowerCase().includes(query))
             : availableCols;
+
+          // Metadata entries not yet selected as columns, filtered by query
+          const availableMeta = metadataEntries.filter(([key]) => !selectedCols.includes(key));
+          const filteredMeta = query
+            ? availableMeta.filter(
+                ([key, val]) =>
+                  key.toLowerCase().includes(query) || val.toLowerCase().includes(query)
+              )
+            : availableMeta;
 
           const isEmpty = selectedCols.length === 0 && !staticVal;
 
@@ -251,7 +245,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                     }`}
                     onClick={() => inputRefs.current[field.id]?.focus()}
                   >
-                    {/* Blue column tags */}
+                    {/* Blue column / metadata tags */}
                     {selectedCols.map((col) => (
                       <span
                         key={col}
@@ -266,7 +260,7 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                       </span>
                     ))}
 
-                    {/* Gray static value tag */}
+                    {/* Gray static value tag (typed by user) */}
                     {staticVal && (
                       <span className="flex items-center gap-0.5 text-xs bg-zinc-100 text-zinc-600 border border-zinc-200 rounded px-1.5 py-0.5 shrink-0">
                         {staticVal}
@@ -278,14 +272,20 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                       </span>
                     )}
 
-                    {/* Text input */}
                     <input
                       ref={(el) => { inputRefs.current[field.id] = el; }}
                       type="text"
                       value={inputValues[field.id] ?? ""}
-                      onChange={(e) => setInputValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setInputValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                      }
                       onFocus={() => setActiveFieldId(field.id)}
-                      onBlur={() => setTimeout(() => setActiveFieldId((id) => id === field.id ? null : id), 150)}
+                      onBlur={() =>
+                        setTimeout(
+                          () => setActiveFieldId((id) => (id === field.id ? null : id)),
+                          150
+                        )
+                      }
                       onKeyDown={(e) => handleKeyDown(e, field.id)}
                       placeholder={isEmpty ? "Select column or type a fixed value…" : ""}
                       className="flex-1 min-w-[120px] text-xs outline-none bg-transparent placeholder:text-zinc-300 text-zinc-700"
@@ -293,25 +293,48 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
                   </div>
 
                   {/* Dropdown */}
-                  {isActive && (
-                    <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-zinc-200 rounded-lg shadow-lg w-full max-h-48 overflow-y-auto">
-                      {filteredCols.length > 0 ? (
-                        filteredCols.map((col) => (
-                          <button
-                            key={col}
-                            type="button"
-                            onMouseDown={(e) => { e.preventDefault(); addColumn(field.id, col); }}
-                            className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 transition-colors"
-                          >
-                            {col}
-                          </button>
-                        ))
-                      ) : query ? (
+                  {isActive && (filteredCols.length > 0 || filteredMeta.length > 0 || query) && (
+                    <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-zinc-200 rounded-lg shadow-lg w-full max-h-52 overflow-y-auto">
+                      {/* Column options */}
+                      {filteredCols.map((col) => (
+                        <button
+                          key={col}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); addColumn(field.id, col); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 transition-colors"
+                        >
+                          {col}
+                        </button>
+                      ))}
+
+                      {/* Divider + metadata section */}
+                      {filteredMeta.length > 0 && (
+                        <>
+                          {filteredCols.length > 0 && (
+                            <div className="border-t border-zinc-100 my-1" />
+                          )}
+                          <div className="px-3 pt-1 pb-0.5 text-[10px] font-medium text-zinc-400 uppercase tracking-wide">
+                            From file metadata
+                          </div>
+                          {filteredMeta.map(([key, val]) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onMouseDown={(e) => { e.preventDefault(); addColumn(field.id, key); }}
+                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-50 transition-colors flex items-center justify-between gap-3"
+                            >
+                              <span className="text-zinc-700">{key}</span>
+                              <span className="text-zinc-400 truncate">{val}</span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Hint when typing something not in any list */}
+                      {query && filteredCols.length === 0 && filteredMeta.length === 0 && (
                         <p className="px-3 py-2 text-xs text-zinc-400">
                           Press Enter to add &ldquo;{inputValues[field.id]}&rdquo; as a fixed value
                         </p>
-                      ) : (
-                        <p className="px-3 py-2 text-xs text-zinc-400">No columns left to add</p>
                       )}
                     </div>
                   )}
@@ -337,29 +360,6 @@ export default function ColumnMapper({ fileId, headers, templates, existingMappi
           );
         })}
       </div>
-
-      {/* Section 2: File metadata */}
-      {metadataEntries.length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-zinc-500 mb-2">File metadata</p>
-          <div className="space-y-1.5">
-            {metadataEntries.map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-3 rounded-md border border-zinc-100 px-3 py-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Toggle
-                    on={metadataIncludes[label] ?? false}
-                    onToggle={() =>
-                      setMetadataIncludes((prev) => ({ ...prev, [label]: !(prev[label] ?? false) }))
-                    }
-                  />
-                  <span className="text-xs font-medium text-zinc-700 shrink-0">{label}</span>
-                </div>
-                <span className="text-xs text-zinc-400 truncate">{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {error && <p className="text-xs text-red-500">{error}</p>}
 
