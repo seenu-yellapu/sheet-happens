@@ -45,11 +45,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-const PREVIEW_KEYS = ["first name", "last name", "firstname", "lastname", "name", "email", "phone"];
-function rowPreview(data: Record<string, string>): string {
+function getRowName(data: Record<string, string>): string {
   const keys = Object.keys(data);
-  const key = keys.find((k) => PREVIEW_KEYS.includes(k.toLowerCase())) ?? keys[0];
-  return key ? data[key] : "";
+  const first = keys.find((k) => /^first\s*name$/i.test(k));
+  const last = keys.find((k) => /^last\s*name$/i.test(k));
+  if (first || last) return [first && data[first], last && data[last]].filter(Boolean).join(" ");
+  const fallback = keys.find((k) => /name|email|phone/i.test(k)) ?? keys[0];
+  return fallback ? data[fallback] : "";
 }
 
 export default function EventFlow({
@@ -66,7 +68,6 @@ export default function EventFlow({
     "";
   const [selectedTemplateId, setSelectedTemplateId] = useState(existingTemplateId);
   const [showTemplatePicker, setShowTemplatePicker] = useState(!existingTemplateId || !initialFile?.column_mapping);
-  const [showFlagged, setShowFlagged] = useState(false);
 
   const currentFile = initialFile;
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
@@ -192,6 +193,7 @@ export default function EventFlow({
               fields={sortedFields}
               existingMapping={currentFile!.column_mapping}
               fileMetadata={currentFile!.file_metadata ?? {}}
+              validated={hasValidation}
             />
           )}
           {hasFile && !selectedTemplate && (
@@ -203,102 +205,79 @@ export default function EventFlow({
         <section className={!hasValidation ? "opacity-40 pointer-events-none select-none" : ""}>
           <SectionLabel>Get your file</SectionLabel>
 
-          <div className="flex flex-wrap gap-3 mb-5">
-            {hasValidation && validation!.clean_count > 0 ? (
-              <a
-                href={`/api/files/${currentFile!.id}/export?type=clean`}
-                download
-                className="text-sm font-medium bg-[#2a5bd7] text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Download clean file
-              </a>
-            ) : (
-              <span className="text-sm font-medium bg-zinc-100 text-zinc-400 px-4 py-2 rounded-md cursor-default">
-                Download clean file
-              </span>
-            )}
-
-            {hasValidation && validation!.flagged_count > 0 ? (
-              <a
-                href={`/api/files/${currentFile!.id}/export?type=flagged`}
-                download
-                className="text-sm font-medium bg-amber-50 text-amber-600 border border-amber-200 px-4 py-2 rounded-md hover:bg-amber-100 transition-colors"
-              >
-                Download flagged rows
-              </a>
-            ) : (
-              <span className="text-sm font-medium bg-zinc-100 text-zinc-400 px-4 py-2 rounded-md cursor-default">
-                Download flagged rows
-              </span>
-            )}
-
-            {currentFile && (
-              <a
-                href={`/api/files/${currentFile.id}/download`}
-                className="text-sm font-medium bg-zinc-100 text-zinc-600 px-4 py-2 rounded-md hover:bg-zinc-200 transition-colors"
-              >
-                Download original file
-              </a>
-            )}
-          </div>
-
           {hasValidation && (
-            <div>
-              <p className="text-sm text-zinc-500">
-                <span className="text-emerald-600 font-medium">{validation!.clean_count} ready</span>
-                {validation!.flagged_count > 0 && (
-                  <> · <span className="text-amber-600 font-medium">{validation!.flagged_count} has issues</span></>
-                )}
-              </p>
-
-              {validation!.flagged_count > 0 && initialFlaggedRows.length > 0 && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowFlagged((v) => !v)}
-                    className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors flex items-center gap-1"
-                  >
-                    <svg
-                      className={`w-3 h-3 transition-transform ${showFlagged ? "rotate-90" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <div className="space-y-3">
+              {/* Clean tile */}
+              {validation!.clean_count > 0 ? (
+                <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-5 py-4">
+                  <div className="flex items-center gap-2.5">
+                    <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
-                    {showFlagged ? "Hide" : "Show"} rows with issues
-                  </button>
+                    <span className="text-sm font-medium text-emerald-700">
+                      {validation!.clean_count} clean record{validation!.clean_count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <a
+                    href={`/api/files/${currentFile!.id}/export?type=clean`}
+                    download
+                    className="text-sm font-medium text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-4 py-1.5 rounded-md transition-colors"
+                  >
+                    Download
+                  </a>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 bg-zinc-50 rounded-xl px-5 py-4 opacity-50">
+                  <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-sm font-medium text-zinc-400">0 clean records</span>
+                </div>
+              )}
 
-                  {showFlagged && (
-                    <div className="mt-2 space-y-0.5">
-                      {initialFlaggedRows.map((row) => {
-                        const preview = rowPreview(row.row_data);
-                        return (
-                          <div
-                            key={row.row_index}
-                            className="rounded-lg px-3 py-2.5 hover:bg-zinc-50 transition-colors flex gap-4"
-                          >
-                            <span className="text-xs text-zinc-400 w-10 shrink-0 pt-0.5 tabular-nums">
-                              {row.row_index}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              {preview && (
-                                <p className="text-xs text-zinc-500 mb-0.5 truncate">{preview}</p>
-                              )}
-                              <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                                {row.issues.map((issue, i) => (
-                                  <span key={i} className="text-xs text-red-400">
-                                    {issue.field}: {issue.message}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+              {/* Flagged tile + table */}
+              {validation!.flagged_count > 0 && (
+                <>
+                  <div className="flex items-center justify-between bg-amber-50 rounded-xl px-5 py-4">
+                    <div className="flex items-center gap-2.5">
+                      <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                      <span className="text-sm font-medium text-amber-700">
+                        {validation!.flagged_count} record{validation!.flagged_count !== 1 ? "s" : ""} {validation!.flagged_count === 1 ? "has" : "have"} issues
+                      </span>
+                    </div>
+                    <a
+                      href={`/api/files/${currentFile!.id}/export?type=flagged`}
+                      download
+                      className="text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 px-4 py-1.5 rounded-md transition-colors"
+                    >
+                      Download
+                    </a>
+                  </div>
+
+                  {initialFlaggedRows.length > 0 && (
+                    <div className="mt-1 rounded-lg overflow-hidden">
+                      <div className="grid grid-cols-[3rem_1fr_2fr] px-3 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
+                        <span>Row</span>
+                        <span>Name</span>
+                        <span>Issues</span>
+                      </div>
+                      {initialFlaggedRows.map((row, i) => (
+                        <div
+                          key={row.row_index}
+                          className={`grid grid-cols-[3rem_1fr_2fr] px-3 py-2.5 text-xs ${i % 2 === 0 ? "bg-zinc-50" : ""}`}
+                        >
+                          <span className="text-zinc-400 tabular-nums">{row.row_index}</span>
+                          <span className="text-zinc-600 truncate pr-4">{getRowName(row.row_data)}</span>
+                          <span className="text-zinc-500">
+                            {row.issues.map((issue) => `${issue.field}: ${issue.message}`).join(" · ")}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </div>
+                </>
               )}
             </div>
           )}

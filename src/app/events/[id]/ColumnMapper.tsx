@@ -18,6 +18,7 @@ interface Props {
   fields: TemplateFieldRow[];
   existingMapping?: ColumnMapping | null;
   fileMetadata?: Record<string, string>;
+  validated?: boolean;
 }
 
 function getFieldType(field: TemplateFieldRow): FieldType {
@@ -60,6 +61,7 @@ export default function ColumnMapper({
   fields,
   existingMapping,
   fileMetadata = {},
+  validated = false,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -368,9 +370,13 @@ export default function ColumnMapper({
         type="button"
         onClick={handleConfirm}
         disabled={isPending}
-        className="text-sm font-medium text-white bg-[#2a5bd7] hover:bg-blue-700 disabled:opacity-40 px-4 py-2 rounded-md transition-colors"
+        className={
+          validated
+            ? "text-sm font-medium text-zinc-500 bg-white border border-zinc-200 hover:border-zinc-300 hover:text-zinc-700 disabled:opacity-40 px-4 py-2 rounded-md transition-colors"
+            : "text-sm font-medium text-white bg-[#2a5bd7] hover:bg-blue-700 disabled:opacity-40 px-4 py-2 rounded-md transition-colors"
+        }
       >
-        {isPending ? "Validating…" : "Confirm and validate"}
+        {isPending ? "Validating…" : validated ? "Re-validate" : "Confirm and validate"}
       </button>
     </div>
   );
