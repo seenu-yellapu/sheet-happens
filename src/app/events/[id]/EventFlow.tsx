@@ -110,7 +110,7 @@ export default function EventFlow({
       <div className="space-y-12">
         {/* ── Section 1: Template ─────────────────────────────────────────── */}
         <section>
-          <SectionLabel>Choose how your output looks</SectionLabel>
+          <SectionLabel>Choose the output file format</SectionLabel>
 
           {showTemplatePicker || !selectedTemplate ? (
             <div className="flex items-center gap-3">
