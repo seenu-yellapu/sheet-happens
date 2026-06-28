@@ -169,12 +169,17 @@ export default function TemplateEditor({ templateId, initialName, initialFields 
     <main className="max-w-3xl mx-auto px-6 py-8">
       {/* Header row: name + options menu */}
       <div className="flex items-start justify-between gap-4 mb-8">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Template name"
-          className="text-xl font-semibold flex-1 border-0 border-b border-zinc-200 focus:border-[#2a5bd7] focus:outline-none pb-1 bg-transparent"
-        />
+        <div className="flex-1 min-w-0">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Template name"
+            className="text-xl font-semibold w-full border-0 border-b border-zinc-200 focus:border-[#2a5bd7] focus:outline-none pb-1 bg-transparent"
+          />
+          <p className="text-xs text-zinc-400 mt-2">
+            Define the columns and validation rules your output file will follow
+          </p>
+        </div>
         <div ref={menuRef} className="relative shrink-0 mt-1">
           <button
             type="button"

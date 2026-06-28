@@ -28,7 +28,20 @@ export default async function TemplatesPage() {
       </div>
 
       {!templates?.length ? (
-        <p className="text-sm text-zinc-400">No templates yet.</p>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <p className="text-base font-medium text-zinc-700 mb-1.5">No templates yet</p>
+          <p className="text-sm text-zinc-400 mb-6">
+            Create one to define what your output looks like
+          </p>
+          <form action={createNewTemplate}>
+            <button
+              type="submit"
+              className="text-sm font-medium bg-[#2a5bd7] text-white px-4 py-1.5 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              New template
+            </button>
+          </form>
+        </div>
       ) : (
         <div className="border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
           {templates.map((t) => {

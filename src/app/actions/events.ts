@@ -52,3 +52,15 @@ export async function deleteEvent(eventId: string) {
 
   redirect("/events");
 }
+
+export async function createEventClient(name: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("events")
+    .insert({ name: name.trim(), user_id: user.id })
+    .select("id")
+    .single();
+  return data?.id ?? null;
+}
