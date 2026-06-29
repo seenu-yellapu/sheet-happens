@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Upload } from "lucide-react";
 
 const ACCEPT = ".csv,.xlsx,.xls,.pdf";
 
@@ -46,11 +47,11 @@ export default function FileUpload({ eventId }: { eventId: string }) {
           setDragging(false);
           handleFiles(e.dataTransfer.files);
         }}
-        className={`border border-dashed rounded-lg px-5 py-5 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-xl px-6 py-10 text-center cursor-pointer transition-colors ${
           dragging
-            ? "border-[#2a5bd7] bg-blue-50/30"
-            : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50/50"
-        }`}
+            ? "border-primary bg-primary/5"
+            : "border-border hover:border-primary/40 hover:bg-muted/30"
+        } ${uploading ? "pointer-events-none" : ""}`}
       >
         <input
           ref={inputRef}
@@ -59,19 +60,24 @@ export default function FileUpload({ eventId }: { eventId: string }) {
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
-        {uploading ? (
-          <p className="text-xs text-zinc-400">Uploading…</p>
-        ) : (
-          <>
-            <p className="text-sm text-zinc-500">
-              Drop a file or{" "}
-              <span className="text-[#2a5bd7] font-medium">browse</span>
-            </p>
-            <p className="text-xs text-zinc-400 mt-0.5">CSV · Excel · PDF</p>
-          </>
-        )}
+        <div className="flex flex-col items-center gap-2">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${dragging ? "bg-primary/10" : "bg-muted"}`}>
+            <Upload className={`w-5 h-5 ${dragging ? "text-primary" : "text-muted-foreground"}`} />
+          </div>
+          {uploading ? (
+            <p className="text-sm text-muted-foreground">Uploading…</p>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-foreground">
+                Drop a file or{" "}
+                <span className="text-primary">browse</span>
+              </p>
+              <p className="text-xs text-muted-foreground">CSV · Excel · PDF</p>
+            </>
+          )}
+        </div>
       </div>
-      {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+      {error && <p className="text-xs text-destructive mt-2">{error}</p>}
     </div>
   );
 }

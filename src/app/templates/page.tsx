@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createNewTemplate } from "@/app/actions/templates";
+import { Button } from "@/components/ui/button";
 
 export default async function TemplatesPage() {
   const supabase = await createClient();
@@ -15,46 +16,36 @@ export default async function TemplatesPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-10">
-      <div className="flex items-center justify-between mb-7">
-        <h1 className="text-sm font-semibold">Templates</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-lg font-semibold">Templates</h1>
         <form action={createNewTemplate}>
-          <button
-            type="submit"
-            className="text-sm font-medium bg-[#2a5bd7] text-white px-4 py-1.5 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            New template
-          </button>
+          <Button type="submit" size="sm">New template</Button>
         </form>
       </div>
 
       {!templates?.length ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-base font-medium text-zinc-700 mb-1.5">No templates yet</p>
-          <p className="text-sm text-zinc-400 mb-6">
+        <div className="flex flex-col items-center justify-center py-28 text-center">
+          <p className="text-base font-medium mb-1.5">No templates yet</p>
+          <p className="text-sm text-muted-foreground mb-6">
             Create one to define what your output looks like
           </p>
           <form action={createNewTemplate}>
-            <button
-              type="submit"
-              className="text-sm font-medium bg-[#2a5bd7] text-white px-4 py-1.5 rounded-md hover:bg-blue-700 transition-colors"
-            >
-              New template
-            </button>
+            <Button type="submit" size="sm">New template</Button>
           </form>
         </div>
       ) : (
-        <div className="border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
+        <div className="border border-border rounded-xl overflow-hidden divide-y divide-border">
           {templates.map((t) => {
             const fieldCount = (t.template_fields as { id: string }[]).length;
             return (
-              <div key={t.id} className="flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors">
+              <div key={t.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/40 transition-colors">
                 <Link
                   href={`/templates/${t.id}/edit`}
-                  className="text-sm font-medium text-zinc-800 hover:text-[#2a5bd7] truncate"
+                  className="text-sm font-medium hover:text-primary transition-colors"
                 >
                   {t.name}
                 </Link>
-                <span className="text-xs text-zinc-400 shrink-0">
+                <span className="text-xs text-muted-foreground">
                   {fieldCount} field{fieldCount !== 1 ? "s" : ""}
                 </span>
               </div>

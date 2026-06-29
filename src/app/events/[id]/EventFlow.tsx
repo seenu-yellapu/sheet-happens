@@ -2,10 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronRight, Check, TriangleAlert, Download } from "lucide-react";
 import RenameEventInput from "./RenameEventInput";
 import DeleteEventButton from "./DeleteEventButton";
 import FileUpload from "./FileUpload";
 import ColumnMapper from "./ColumnMapper";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 import type { FileRow, FlaggedRow } from "./page";
 import type { ColumnMapping } from "@/lib/validation/types";
 
@@ -37,11 +43,15 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ step, children, dimmed }: { step: number; children: React.ReactNode; dimmed?: boolean }) {
   return (
-    <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-4">
-      {children}
-    </p>
+    <div className={`flex items-center gap-3 mb-5 ${dimmed ? "opacity-40" : ""}`}>
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${dimmed ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"}`}>
+        {step}
+      </div>
+      <p className="text-sm font-semibold text-foreground">{children}</p>
+      {!dimmed && <Separator className="flex-1" />}
+    </div>
   );
 }
 
@@ -80,26 +90,20 @@ export default function EventFlow({
   const hasValidation = !!(currentFile?.file_validations?.length);
   const validation = currentFile?.file_validations?.[0];
 
-  function handleTemplateConfirm() {
-    if (selectedTemplateId) setShowTemplatePicker(false);
-  }
-
   return (
-    <main className="max-w-3xl mx-auto px-6 py-8">
+    <main className="max-w-2xl mx-auto px-6 py-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <Link
-          href="/events"
-          className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-        >
-          ← Events
+      <div className="flex items-center justify-between mb-2">
+        <Link href="/events" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+          <ChevronRight className="w-3 h-3 rotate-180" />
+          Events
         </Link>
         <DeleteEventButton eventId={eventId} />
       </div>
 
       <div className="mb-10">
         <RenameEventInput eventId={eventId} initialName={eventName} />
-        <p className="text-xs text-zinc-400 mt-1.5">
+        <p className="text-xs text-muted-foreground mt-1">
           {new Date(eventCreatedAt).toLocaleDateString("en-US", {
             year: "numeric",
             month: "long",
@@ -108,83 +112,69 @@ export default function EventFlow({
         </p>
       </div>
 
-      <div className="space-y-12">
-        {/* ── Section 1: Template ─────────────────────────────────────────── */}
+      <div className="space-y-10">
+        {/* ── Section 1: Template ── */}
         <section>
-          <SectionLabel>Choose the output file format</SectionLabel>
+          <SectionLabel step={1}>Choose the output file format</SectionLabel>
 
-          {showTemplatePicker || !selectedTemplate ? (
+          {templates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No templates yet.{" "}
+              <Link href="/templates" className="text-primary hover:underline">Create one →</Link>
+            </p>
+          ) : showTemplatePicker || !selectedTemplate ? (
             <div className="flex items-center gap-3">
-              <select
-                value={selectedTemplateId}
-                onChange={(e) => setSelectedTemplateId(e.target.value)}
-                className="text-sm border border-zinc-200 rounded-md px-3 py-1.5 focus:outline-none focus:border-[#2a5bd7] text-zinc-700"
-              >
-                {!selectedTemplateId && (
-                  <option value="">Pick a template…</option>
-                )}
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger className="max-w-xs">
+                  <SelectValue placeholder="Pick a template…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {selectedTemplateId && (
-                <button
-                  type="button"
-                  onClick={handleTemplateConfirm}
-                  className="text-sm font-medium text-white bg-[#2a5bd7] hover:bg-blue-700 px-3 py-1.5 rounded-md transition-colors"
-                >
+                <Button size="sm" onClick={() => setShowTemplatePicker(false)}>
                   Confirm
-                </button>
+                </Button>
               )}
             </div>
           ) : (
             <div className="flex items-center gap-4">
               <div>
-                <p className="text-sm font-medium text-zinc-800">{selectedTemplate.name}</p>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-sm font-medium">{selectedTemplate.name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {sortedFields.length} column{sortedFields.length !== 1 ? "s" : ""}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowTemplatePicker(true)}
-                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setShowTemplatePicker(true)} className="text-muted-foreground">
                 Change
-              </button>
+              </Button>
             </div>
-          )}
-
-          {templates.length === 0 && (
-            <p className="text-sm text-zinc-400">
-              No templates yet.{" "}
-              <a href="/templates" className="text-[#2a5bd7] hover:underline">Create one →</a>
-            </p>
           )}
         </section>
 
-        {/* ── Section 2: Upload ────────────────────────────────────────────── */}
+        {/* ── Section 2: Upload ── */}
         <section className={!hasTemplate ? "opacity-40 pointer-events-none select-none" : ""}>
-          <SectionLabel>Upload your roster</SectionLabel>
+          <SectionLabel step={2} dimmed={!hasTemplate}>Upload your roster</SectionLabel>
           <FileUpload eventId={eventId} />
           {currentFile && (
-            <div className="mt-3 flex items-center gap-3 text-xs text-zinc-500">
-              <span className="font-medium text-zinc-700">{currentFile.name}</span>
+            <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{currentFile.name}</span>
               <span>{formatBytes(currentFile.size)}</span>
               <span>
                 {new Date(currentFile.created_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
+                  month: "short", day: "numeric", year: "numeric",
                 })}
               </span>
             </div>
           )}
         </section>
 
-        {/* ── Section 3: Column mapping ────────────────────────────────────── */}
+        {/* ── Section 3: Column mapping ── */}
         <section className={!hasFile ? "opacity-40 pointer-events-none select-none" : ""}>
-          <SectionLabel>Match your columns</SectionLabel>
+          <SectionLabel step={3} dimmed={!hasFile}>Match your columns</SectionLabel>
           {hasFile && selectedTemplate && (
             <ColumnMapper
               fileId={currentFile!.id}
@@ -197,84 +187,91 @@ export default function EventFlow({
             />
           )}
           {hasFile && !selectedTemplate && (
-            <p className="text-sm text-zinc-400">Select a template in section 1 first.</p>
+            <p className="text-sm text-muted-foreground">Select a template in step 1 first.</p>
           )}
         </section>
 
-        {/* ── Section 4: Export ────────────────────────────────────────────── */}
+        {/* ── Section 4: Export ── */}
         <section className={!hasValidation ? "opacity-40 pointer-events-none select-none" : ""}>
-          <SectionLabel>Get your file</SectionLabel>
+          <SectionLabel step={4} dimmed={!hasValidation}>Get your file</SectionLabel>
 
           {hasValidation && (
             <div className="space-y-3">
               {/* Clean tile */}
               {validation!.clean_count > 0 ? (
-                <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-5 py-4">
+                <Card className="flex items-center justify-between px-5 py-4 bg-emerald-50 border-emerald-100">
                   <div className="flex items-center gap-2.5">
-                    <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-medium text-emerald-700">
-                      {validation!.clean_count} clean record{validation!.clean_count !== 1 ? "s" : ""}
-                    </span>
+                    <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                      <Check className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-700">
+                        {validation!.clean_count} clean record{validation!.clean_count !== 1 ? "s" : ""}
+                      </p>
+                      <p className="text-xs text-emerald-600/70">Ready to download</p>
+                    </div>
                   </div>
-                  <a
-                    href={`/api/files/${currentFile!.id}/export?type=clean`}
-                    download
-                    className="text-sm font-medium text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-4 py-1.5 rounded-md transition-colors"
-                  >
-                    Download
+                  <a href={`/api/files/${currentFile!.id}/export?type=clean`} download>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                      <Download className="w-3.5 h-3.5" />
+                      Download
+                    </Button>
                   </a>
-                </div>
+                </Card>
               ) : (
-                <div className="flex items-center gap-2.5 bg-zinc-50 rounded-xl px-5 py-4 opacity-50">
-                  <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm font-medium text-zinc-400">0 clean records</span>
-                </div>
+                <Card className="flex items-center gap-3 px-5 py-4 bg-muted/40 opacity-60">
+                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <Check className="w-3.5 h-3.5 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-muted-foreground">0 clean records</p>
+                </Card>
               )}
 
-              {/* Flagged tile + table */}
+              {/* Flagged tile */}
               {validation!.flagged_count > 0 && (
                 <>
-                  <div className="flex items-center justify-between bg-amber-50 rounded-xl px-5 py-4">
+                  <Card className="flex items-center justify-between px-5 py-4 bg-amber-50 border-amber-100">
                     <div className="flex items-center gap-2.5">
-                      <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                      </svg>
-                      <span className="text-sm font-medium text-amber-700">
-                        {validation!.flagged_count} record{validation!.flagged_count !== 1 ? "s" : ""} {validation!.flagged_count === 1 ? "has" : "have"} issues
-                      </span>
+                      <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                        <TriangleAlert className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-amber-700">
+                          {validation!.flagged_count} record{validation!.flagged_count !== 1 ? "s" : ""} {validation!.flagged_count === 1 ? "has" : "have"} issues
+                        </p>
+                        <p className="text-xs text-amber-600/70">Review before using</p>
+                      </div>
                     </div>
-                    <a
-                      href={`/api/files/${currentFile!.id}/export?type=flagged`}
-                      download
-                      className="text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 px-4 py-1.5 rounded-md transition-colors"
-                    >
-                      Download
+                    <a href={`/api/files/${currentFile!.id}/export?type=flagged`} download>
+                      <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white">
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </Button>
                     </a>
-                  </div>
+                  </Card>
 
                   {initialFlaggedRows.length > 0 && (
-                    <div className="mt-1 rounded-lg overflow-hidden">
-                      <div className="grid grid-cols-[3rem_1fr_2fr] px-3 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wide">
-                        <span>Row</span>
-                        <span>Name</span>
-                        <span>Issues</span>
-                      </div>
-                      {initialFlaggedRows.map((row, i) => (
-                        <div
-                          key={row.row_index}
-                          className={`grid grid-cols-[3rem_1fr_2fr] px-3 py-2.5 text-xs ${i % 2 === 0 ? "bg-zinc-50" : ""}`}
-                        >
-                          <span className="text-zinc-400 tabular-nums">{row.row_index}</span>
-                          <span className="text-zinc-600 truncate pr-4">{getRowName(row.row_data)}</span>
-                          <span className="text-zinc-500">
-                            {row.issues.map((issue) => `${issue.field}: ${issue.message}`).join(" · ")}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="rounded-xl border border-border overflow-hidden mt-1">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/30">
+                            <TableHead className="w-16">Row</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Issues</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {initialFlaggedRows.map((row) => (
+                            <TableRow key={row.row_index}>
+                              <TableCell className="text-muted-foreground tabular-nums">{row.row_index}</TableCell>
+                              <TableCell className="font-medium">{getRowName(row.row_data)}</TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {row.issues.map((i) => `${i.field}: ${i.message}`).join(" · ")}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   )}
                 </>

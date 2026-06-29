@@ -4,6 +4,14 @@ import { useState, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createEventClient } from "@/app/actions/events";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface EventRow {
   id: string;
@@ -19,17 +27,7 @@ export default function EventsList({ initialEvents }: { initialEvents: EventRow[
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (modalOpen) {
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [modalOpen]);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") closeModal();
-    }
-    if (modalOpen) document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    if (modalOpen) setTimeout(() => inputRef.current?.focus(), 50);
   }, [modalOpen]);
 
   function openModal() {
@@ -38,6 +36,7 @@ export default function EventsList({ initialEvents }: { initialEvents: EventRow[
   }
 
   function closeModal() {
+    if (isPending) return;
     setModalOpen(false);
     setNewName("");
   }
@@ -58,41 +57,29 @@ export default function EventsList({ initialEvents }: { initialEvents: EventRow[
 
   return (
     <>
-      <div className="flex items-center justify-between mb-7">
-        <h1 className="text-sm font-semibold">Events</h1>
-        <button
-          type="button"
-          onClick={openModal}
-          className="text-sm font-medium bg-[#2a5bd7] text-white px-4 py-1.5 rounded-md hover:bg-blue-700 transition-colors"
-        >
-          New event
-        </button>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-lg font-semibold">Events</h1>
+        <Button onClick={openModal} size="sm">New event</Button>
       </div>
 
       {!initialEvents.length ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-base font-medium text-zinc-700 mb-1.5">No events yet</p>
-          <p className="text-sm text-zinc-400 mb-6">Create your first event to get started</p>
-          <button
-            type="button"
-            onClick={openModal}
-            className="text-sm font-medium bg-[#2a5bd7] text-white px-4 py-1.5 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            New event
-          </button>
+        <div className="flex flex-col items-center justify-center py-28 text-center">
+          <p className="text-base font-medium text-foreground mb-1.5">No events yet</p>
+          <p className="text-sm text-muted-foreground mb-6">Create your first event to get started</p>
+          <Button onClick={openModal} size="sm">New event</Button>
         </div>
       ) : (
-        <div className="border border-zinc-200 rounded-lg overflow-hidden divide-y divide-zinc-100">
+        <div className="border border-border rounded-xl overflow-hidden divide-y divide-border">
           {initialEvents.map((event) => (
             <Link
               key={event.id}
               href={`/events/${event.id}`}
-              className="flex items-center justify-between px-4 py-3 hover:bg-zinc-50 transition-colors group"
+              className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/40 transition-colors group"
             >
-              <span className="text-sm font-medium text-zinc-800 group-hover:text-zinc-900">
+              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                 {event.name}
               </span>
-              <span className="text-xs text-zinc-400">
+              <span className="text-xs text-muted-foreground">
                 {new Date(event.created_at).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
@@ -104,45 +91,40 @@ export default function EventsList({ initialEvents }: { initialEvents: EventRow[
         </div>
       )}
 
-      {/* Modal */}
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}
-        >
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 px-6 py-7">
-            <h2 className="text-sm font-semibold text-zinc-800 mb-4">New event</h2>
-            <input
+      <Dialog open={modalOpen} onOpenChange={(open) => !open && closeModal()}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New event</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
               ref={inputRef}
-              type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Event name"
               disabled={isPending}
-              className="w-full text-sm border border-zinc-200 rounded-md px-3 py-2 focus:outline-none focus:border-[#2a5bd7] placeholder:text-zinc-400 text-zinc-800 disabled:opacity-50"
             />
-            <button
-              type="button"
+            <Button
               onClick={confirmCreate}
               disabled={isPending || !newName.trim()}
-              className="mt-3 w-full text-sm font-medium bg-[#2a5bd7] text-white py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-40"
+              className="w-full"
             >
               {isPending ? "Creating…" : "Create event"}
-            </button>
-            <div className="text-center mt-3">
+            </Button>
+            <div className="text-center">
               <button
                 type="button"
                 onClick={closeModal}
                 disabled={isPending}
-                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

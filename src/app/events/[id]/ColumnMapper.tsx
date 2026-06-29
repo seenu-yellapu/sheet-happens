@@ -3,6 +3,8 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { FieldAssignment, CombineMode, FieldType, ColumnMapping } from "@/lib/validation/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface TemplateFieldRow {
   id: string;
@@ -235,9 +237,10 @@ export default function ColumnMapper({
                   >
                     {/* Blue column / metadata tags */}
                     {selectedCols.map((col) => (
-                      <span
+                      <Badge
                         key={col}
-                        className="flex items-center gap-0.5 text-xs bg-blue-50 text-[#2a5bd7] border border-[#2a5bd7]/30 rounded px-1.5 py-0.5 shrink-0"
+                        variant="blue"
+                        className="flex items-center gap-0.5 shrink-0"
                       >
                         {col}
                         <button
@@ -245,19 +248,19 @@ export default function ColumnMapper({
                           onMouseDown={(e) => { e.preventDefault(); removeColumn(field.id, col); }}
                           className="ml-0.5 hover:text-red-500 leading-none"
                         >×</button>
-                      </span>
+                      </Badge>
                     ))}
 
                     {/* Gray static value tag */}
                     {staticVal && (
-                      <span className="flex items-center gap-0.5 text-xs bg-zinc-100 text-zinc-600 border border-zinc-200 rounded px-1.5 py-0.5 shrink-0">
+                      <Badge variant="secondary" className="flex items-center gap-0.5 shrink-0">
                         {staticVal}
                         <button
                           type="button"
                           onMouseDown={(e) => { e.preventDefault(); removeStaticValue(field.id); }}
                           className="ml-0.5 hover:text-red-500 leading-none"
                         >×</button>
-                      </span>
+                      </Badge>
                     )}
 
                     <input
@@ -366,18 +369,15 @@ export default function ColumnMapper({
 
       {error && <p className="text-xs text-red-500">{error}</p>}
 
-      <button
+      <Button
         type="button"
         onClick={handleConfirm}
         disabled={isPending}
-        className={
-          validated
-            ? "text-sm font-medium text-zinc-500 bg-white border border-zinc-200 hover:border-zinc-300 hover:text-zinc-700 disabled:opacity-40 px-4 py-2 rounded-md transition-colors"
-            : "text-sm font-medium text-white bg-[#2a5bd7] hover:bg-blue-700 disabled:opacity-40 px-4 py-2 rounded-md transition-colors"
-        }
+        variant={validated ? "outline" : "default"}
+        size="sm"
       >
         {isPending ? "Validating…" : validated ? "Re-validate" : "Confirm and validate"}
-      </button>
+      </Button>
     </div>
   );
 }

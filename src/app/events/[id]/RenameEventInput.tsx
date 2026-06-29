@@ -2,6 +2,9 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { renameEvent } from "@/app/actions/events";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Pencil } from "lucide-react";
 
 export default function RenameEventInput({
   eventId,
@@ -40,46 +43,33 @@ export default function RenameEventInput({
   if (editing) {
     return (
       <div className="flex items-center gap-2">
-        <input
+        <Input
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={isPending}
-          className="text-xl font-semibold bg-transparent border-b border-[#2a5bd7]
-                     focus:outline-none w-full disabled:opacity-50 text-zinc-900"
+          className="text-xl font-semibold h-auto py-0.5 px-1 border-0 border-b border-primary rounded-none focus-visible:ring-0 focus-visible:border-primary bg-transparent"
         />
-        <button
-          onClick={handleSave}
-          disabled={isPending || !name.trim()}
-          className="text-xs font-medium text-white bg-[#2a5bd7] hover:bg-blue-700
-                     px-2.5 py-1 rounded-md transition-colors disabled:opacity-40 shrink-0"
-        >
+        <Button size="sm" onClick={handleSave} disabled={isPending || !name.trim()}>
           {isPending ? "…" : "Save"}
-        </button>
-        <button
-          onClick={() => { setName(initialName); setEditing(false); }}
-          disabled={isPending}
-          className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors shrink-0"
-        >
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => { setName(initialName); setEditing(false); }} disabled={isPending}>
           Cancel
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-1.5 group">
-      <h1 className="text-xl font-semibold text-zinc-900">{name}</h1>
+      <h1 className="text-xl font-semibold text-foreground">{name}</h1>
       <button
         onClick={() => setEditing(true)}
-        className="text-zinc-300 hover:text-zinc-500 transition-colors opacity-0 group-hover:opacity-100 mt-0.5"
+        className="text-muted-foreground/40 hover:text-muted-foreground transition-colors opacity-0 group-hover:opacity-100"
         aria-label="Rename event"
       >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <path d="M11.333 2a1.886 1.886 0 0 1 2.667 2.667L4.667 14H2v-2.667L11.333 2Z"
-            stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        <Pencil className="w-3.5 h-3.5" />
       </button>
     </div>
   );

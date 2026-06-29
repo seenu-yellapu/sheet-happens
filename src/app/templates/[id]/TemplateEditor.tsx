@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveTemplate, duplicateTemplate, deleteTemplate } from "@/app/actions/templates";
 import type { TemplateFieldRules, FieldType } from "@/lib/validation/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 interface EditorField {
   id: string;
@@ -29,19 +32,6 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
 
 let newCounter = 0;
 
-function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`relative w-8 h-4 rounded-full transition-colors focus:outline-none ${on ? "bg-[#2a5bd7]" : "bg-zinc-200"}`}
-    >
-      <span
-        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${on ? "translate-x-4" : "translate-x-0.5"}`}
-      />
-    </button>
-  );
-}
 
 export default function TemplateEditor({ templateId, initialName, initialFields }: Props) {
   const router = useRouter();
@@ -170,11 +160,11 @@ export default function TemplateEditor({ templateId, initialName, initialFields 
       {/* Header row: name + options menu */}
       <div className="flex items-start justify-between gap-4 mb-8">
         <div className="flex-1 min-w-0">
-          <input
+          <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Template name"
-            className="text-xl font-semibold w-full border-0 border-b border-zinc-200 focus:border-[#2a5bd7] focus:outline-none pb-1 bg-transparent"
+            className="text-xl font-semibold border-0 border-b border-input focus-visible:ring-0 focus-visible:border-primary rounded-none pb-1 bg-transparent"
           />
           <p className="text-xs text-zinc-400 mt-2">
             Define the columns and validation rules your output file will follow
@@ -251,11 +241,11 @@ export default function TemplateEditor({ templateId, initialName, initialFields 
                 </div>
 
                 {/* Field name input */}
-                <input
+                <Input
                   value={field.name}
                   onChange={(e) => updateName(field.id, e.target.value)}
                   placeholder="Field name"
-                  className="flex-1 text-sm bg-transparent border-0 focus:outline-none text-zinc-800 placeholder:text-zinc-300"
+                  className="flex-1 text-sm bg-transparent border-0 shadow-none focus-visible:ring-0 h-auto py-0 placeholder:text-muted-foreground/40"
                 />
 
                 {/* Type badge */}
@@ -303,31 +293,31 @@ export default function TemplateEditor({ templateId, initialName, initialFields 
 
                   {/* Required */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-zinc-600">Required</span>
-                    <Toggle on={field.rules.required} onToggle={() => updateRule(field.id, "required", !field.rules.required)} />
+                    <span className="text-xs text-muted-foreground">Required</span>
+                    <Switch checked={field.rules.required} onCheckedChange={(checked) => updateRule(field.id, "required", checked)} />
                   </div>
 
                   {/* Valid format — email/phone only */}
                   {showFormatRules && (
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-zinc-600">Valid format</span>
-                      <Toggle on={field.rules.validFormat} onToggle={() => updateRule(field.id, "validFormat", !field.rules.validFormat)} />
+                      <span className="text-xs text-muted-foreground">Valid format</span>
+                      <Switch checked={field.rules.validFormat} onCheckedChange={(checked) => updateRule(field.id, "validFormat", checked)} />
                     </div>
                   )}
 
                   {/* Flag duplicates — email/phone only */}
                   {showFormatRules && (
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-zinc-600">Flag duplicates</span>
-                      <Toggle on={field.rules.flagDuplicates} onToggle={() => updateRule(field.id, "flagDuplicates", !field.rules.flagDuplicates)} />
+                      <span className="text-xs text-muted-foreground">Flag duplicates</span>
+                      <Switch checked={field.rules.flagDuplicates} onCheckedChange={(checked) => updateRule(field.id, "flagDuplicates", checked)} />
                     </div>
                   )}
 
                   {/* Must be 10 digits — phone only */}
                   {showMinDigits && (
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-zinc-600">Must be 10 digits</span>
-                      <Toggle on={field.rules.minDigits} onToggle={() => updateRule(field.id, "minDigits", !field.rules.minDigits)} />
+                      <span className="text-xs text-muted-foreground">Must be 10 digits</span>
+                      <Switch checked={field.rules.minDigits} onCheckedChange={(checked) => updateRule(field.id, "minDigits", checked)} />
                     </div>
                   )}
                 </div>
@@ -338,33 +328,34 @@ export default function TemplateEditor({ templateId, initialName, initialFields 
       </div>
 
       {/* Add field */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={addField}
-        className="text-xs text-zinc-400 hover:text-[#2a5bd7] transition-colors mb-8"
+        className="text-muted-foreground mb-8"
       >
         + Add field
-      </button>
+      </Button>
 
-      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+      {error && <p className="text-xs text-destructive mb-3">{error}</p>}
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => router.push("/templates")}
-          className="text-sm text-zinc-500 hover:text-zinc-700 transition-colors"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={handleSave}
           disabled={isPending || !name.trim()}
-          className="text-sm font-medium bg-[#2a5bd7] text-white px-4 py-1.5 rounded-md hover:bg-blue-700 disabled:opacity-40 transition-colors"
         >
           {isPending ? "Saving…" : "Save template"}
-        </button>
+        </Button>
       </div>
     </main>
   );

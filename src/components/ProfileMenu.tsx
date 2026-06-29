@@ -37,10 +37,10 @@ export default function ProfileMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-36 bg-white border border-zinc-200 rounded-lg shadow-lg py-1 z-50">
+        <div className="absolute right-0 top-10 w-36 bg-white border border-border rounded-lg shadow-lg py-1 z-50">
           <button
             onClick={handleSignOut}
-            className="w-full text-left px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+            className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
           >
             Sign out
           </button>
